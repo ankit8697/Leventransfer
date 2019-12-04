@@ -3,12 +3,25 @@ from Crypto.PublicKey import RSA
 from Crypto.Cipher import AES
 from Crypto.Hash import SHA256
 from Crypto import Random
-from Crypto.Cipher import PKCS1_OAEP
 from netsim.netinterface import network_interface
+from datetime import datetime
 
 username = ''
 password = ''
 pubkeyfile = 'test_pubkey.pem'
+privkeyfile = 'test_keypair.pem'
+
+def generate_session_key():
+    sessionkey = Random.get_random_bytes
+    pubkey = load_publickey(pubkeyfile)
+    RSAcipher = PKCS1_OAEP.new(pubkey)
+
+    symkey = Random.get_random_bytes(32) # we need a 256-bit (32-byte) AES key
+    sessionkey = Random.get_random_bytes(32)
+    iv = Random.get_random_bytes(AES.block_size)
+    AEScipher = AES.new(key, AES.MODE_CBC, iv)
+
+    encsymkey = RSAcipher.encrypt(symkey)
 
 def load_publickey(pubkeyfile):
     with open(pubkeyfile, 'rb') as f:
@@ -36,29 +49,49 @@ for opt, arg in opts:
     elif opt in ('-p', '--password'):
         password = arg
 
-def generate_hashed_payload(username, password):
+
+#generate login message
+def generate_message(username, password):
+    payload = generate_payload(username, password)
+    header = generate_message_header(len(payload))
+    return header + payload
+
+
+# generate message header (5 bytes)
+def generate_message_header(msg_length):
+    header_version = b'\x01\x00'                            # protocol version 1.0
+    header_type = b'\x01'                                   # message type 0
+    header_length = msg_length.to_bytes(2, byteorder='big') # message length
+    return header_version + header_type + header_length
+
+
+# generate payload for login message
+def generate_payload(username, password):
+    return generate_hashed_credentials(username, password) + generate_timestamp() + generate_sk()
+
+
+# hash user credentials
+def generate_hashed_credentials(username, password):
     hashfnUsername = SHA256.new()
-    hashfnUsername.update(username)
+    hashfnUsername.update(username.encode("utf-8"))
     hashed_username = hashfnUsername.digest()
     hashfnPassword = SHA256.new()
-    hashfnPassword.update(password)
+    hashfnPassword.update(password.encode("utf-8"))
     hashed_password = hashfnPassword.digest()
 
-    username_length = len(hashed_username)
-
-    payload = hashed_username + hashed_password
-    return payload, username_length
+    credentials = hashed_username + hashed_password
+    return credentials
 
 
-pubkey = load_publickey(pubkeyfile)
-RSAcipher = PKCS1_OAEP.new(pubkey)
-
-symkey = Random.get_random_bytes(32) # we need a 256-bit (32-byte) AES key
-sessionkey = Random.get_random_bytes(32)
-iv = Random.get_random_bytes(AES.block_size)
-AEScipher = AES.new(key, AES.MODE_CBC, iv)
-
-encsymkey = RSAcipher.encrypt(symkey)
+# generate current timestamp (20 bytes)
+def generate_timestamp():
+    dt = datetime.now()
+    return dt.strftime('%Y%m%d%H%M%S%f').encode("utf-8")
 
 
-payload, username_length = generate_hashed_payload(username, password)
+# generate session symmetric key ()
+def generate_sk():
+    return Random.get_random_bytes(AES.block_size)
+
+
+print(len(generate_message("bob", "abc")))
