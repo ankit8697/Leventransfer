@@ -24,6 +24,18 @@ for opt, arg in opts:
     elif opt in ('-p', '--password'):
         password = arg
 
-hashfn = SHA256.new()
-hashfn.update(username+password)
-hashed_credentials = hashfn.digest()
+
+payload, username_length = generate_hashed_payload(username, password)
+
+def generate_hashed_payload(username, password):
+    hashfnUsername = SHA256.new()
+    hashfnUsername.update(username)
+    hashed_username = hashfnUsername.digest()
+    hashfnPassword = SHA256.new()
+    hashfnPassword.update(password)
+    hashed_password = hashfnPassword.digest()
+
+    username_length = len(hashed_username)
+
+    payload = hashed_username + hashed_password
+    return payload, username_length
