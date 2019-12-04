@@ -1,6 +1,7 @@
 import sys, getopt, getpass
 from Crypto.PublicKey import RSA
 from Crypto.Cipher import AES
+from Crypto.Hash import SHA256
 from netsim.netinterface import network_interface
 
 username = ''
@@ -22,3 +23,7 @@ for opt, arg in opts:
         username = arg
     elif opt in ('-p', '--password'):
         password = arg
+
+hashfn = SHA256.new()
+hashfn.update(username+password)
+hashed_credentials = hashfn.digest()
