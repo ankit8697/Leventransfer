@@ -25,22 +25,17 @@ def save_keypair(keypair, privkeyfile):
     #The key pair contains the private key, so we want to save it protected with a passphrase
     #We use the getpass() function of the getpass class to input the passphrase from the user 
     passphrase = getpass.getpass('Enter a passphrase to protect the saved private key: ')
-
-    #TODO: Export the key pair in PEM format protected with the passphrase and 
-    #      save the result in the file privkeyfile 
+ 
     with open(privkeyfile, 'wb') as f:
         f.write(keypair.export_key(format='PEM', passphrase = passphrase))
 
 
 def load_keypair(privkeyfile):
-    #We will need the passphrase to get access to the private key 
-    #TODO: Input the passphrase from the user 
     passphrase = getpass.getpass('Enter a passphrase to protect the saved private key')
 
     with open(privkeyfile, 'rb') as f:
         keypairstr = f.read()
     try:
-        #TODO: Import the key pair and return it
         return RSA.import_key(keypairstr, passphrase = passphrase)
         
     except ValueError:
@@ -61,7 +56,6 @@ inputfile = ''
 outputfile = ''
 sign = False
 
-#TODO: Inspect the code and try to understand what command line parameters will be expected...
 try:
     opts, args = getopt.getopt(sys.argv[1:], 'hkedp:s:i:o:', ['help', 'kpg', 'enc', 'dec', 'pubkeyfile=', 'privkeyfile=', 'inputfile=', 'outputfile='])
 except getopt.GetoptError:
@@ -74,7 +68,6 @@ except getopt.GetoptError:
     print('    hybrid.py -d -s <privkeyfile> [-p <pubkeyfile>] -i <inputfile> -o <outputfile>')
     sys.exit(1)
 
-#TODO: Inspect the code and try to understand how command line parameters are handled...
 for opt, arg in opts:
     if opt in ('-h', '--help'):
         print('Usage:')
@@ -102,7 +95,6 @@ for opt, arg in opts:
 
 #Handling missing or wrongly given parameters...
 
-#TODO: Handle a wrongly given operation 
 if operation not in ('kpg', 'enc', 'dec'):
     print('Error: Operation must be -k (for key pair generation) or -e (for encryption) or -d (for decryption).')
     sys.exit(1)
@@ -113,25 +105,18 @@ if (not pubkeyfile) and (operation == 'enc' or operation == 'kpg'):
     print('Error: Name of the public key file is missing.')
     sys.exit(1)
 
-#TODO: Handle a missing private key file... 
-#      Print an error if privkeyfile is empty and the operation is 'dec' or 'kpg'
 if operation in ('dec', 'kpg') and (not privkeyfile):
     print('Error: Name of the private key file is missing.')
     sys.exit(1)
 
-#TODO: Handle a missing input file... 
-#      Print an error if inputfile is empty and the operation is 'enc' or 'dec'
 if operation in ('enc', 'dec') and (not inputfile):
     print('Error: Name of input file is missing.')
     sys.exit(1)
 
-#TODO: Handle a missing output file...
-#      Print an error if outputfile is empty and the operation is 'enc' or 'dec'
 if operation in ('enc', 'dec') and (not outputfile):
     print('Error: Name of output file is missing.')
     sys.exit(1)
 
-#If operation is 'enc' and a private key file is given, we also need to sign the output...
 if (operation == 'enc') and privkeyfile: 
     sign = True
 
@@ -141,10 +126,8 @@ if (operation == 'enc') and privkeyfile:
 
 if operation == 'kpg': 
     print('Generating a new 2048-bit RSA key pair...')
-    #TODO: Generate a new 2048-bit RSA key pair
     keypair = RSA.generate(2048)
 
-    #TODO: Save the public part of the key pair in pubkeyfile
     save_publickey(keypair.publickey(), pubkeyfile)
 
     #Save the entire key pair in privkeyfile
@@ -158,32 +141,23 @@ if operation == 'kpg':
 elif operation == 'enc': 
     print('Encrypting...')
 
-    #TODO: Load the public key from pubkeyfile and 
-    #      create an RSA cipher object
     pubkey = load_publickey(pubkeyfile)
     RSAcipher = PKCS1_OAEP.new(pubkey)
 
     #Read the plaintext from the input file
     with open(inputfile, 'rb') as f: 
         plaintext = f.read()
-
-    #TODO: Apply PKCS7 padding on the plaintext (we want to use AES)
     padded_plaintext = Padding.pad(plaintext, AES.block_size)
 	
-    #TODO: Generate a random symmetric key and a random IV
-    #      and create an AES cipher object in CBC mode
     symkey = Random.get_random_bytes(32) # we need a 256-bit (32-byte) AES key
     iv = Random.get_random_bytes(AES.block_size)
     AEScipher = AES.new(key, AES.MODE_CBC, iv)
 
-    #TODO: Encrypt the padded plaintext with the AES cipher
     ciphertext = cipher.encrypt(plaintext)
 
-    #TODO: Encrypt the AES key with the RSA cipher
     encsymkey = RSAcipher.encrypt(symkey)
 
-    #Compute signature if needed
-    #TODO: Inspect the code to understand how to generate a signature... 
+    #Compute signature if needed 
     if sign:
         keypair = load_keypair(privkeyfile)
         signer = pss.new(keypair)
@@ -214,8 +188,6 @@ elif operation == 'dec':
     print('Decrypting...')
 
     #Read and parse the input...
-    #TODO: Inspect the code to understand how the different parts of the ciphertext
-    #      are recognized based on the delimiter lines and processed... 
     encsymkey = b''
     iv = b''
     ciphertext = b''
@@ -252,16 +224,6 @@ elif operation == 'dec':
         if not pubkeyfile:
             print('Error: Public key file is missing, signature cannot be verified.')
         else:
-            #TODO: Write the signature verification code here...
-            #      - load the public key from pubkeyfile
-            #      - create an RSA PSS verifier object
-            #      - create a SHA256 object
-            #      - hash encsymkey+iv+ciphertext with SHA256
-            #      - call the verify function of the verifier object in a try clause
-            #      - if the signature is valid, then print a success message and go on
-            #      - if the signature is invalid, then an excpetion is thrown, catch it and print 
-            #        and error message, and then ask the user if he/she wants to continue nevetheless
-            #...
             try:
                 pubkey = 
                 pubkey = RSA.import_key(pubkeystr)
@@ -269,23 +231,9 @@ elif operation == 'dec':
                 h = SHA256.new()
                 
             except (ValueError, TypeError):
-                #...
                 yn = input('Do you want to continue nevertheless (y/n)? ')
                 if yn != 'y': 
                     sys.exit(1)
-
-    #TODO:Load the private key (key pair) from privkeyfile and 
-    #     create the RSA cipher object
-    #keypair = ...
-    #RSAcipher = ...
-
-    #TODO: Decrypt the AES key and create the AES cipher object (CBC mode is used)
-    #symkey = ...
-    #AEScipher = ...	
-	
-    #TODO: Decrypt the ciphertext and remove padding
-    #padded_plaintext = ...
-    #plaintext = ...
 	
     #Write out the plaintext into the output file
     with open(outputfile, 'wb') as f:
