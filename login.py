@@ -1,6 +1,7 @@
 import sys, getopt, getpass
 from Crypto.PublicKey import RSA
 from Crypto.Cipher import AES
+from netsim.netinterface import network_interface
 
 username = ''
 password = ''
