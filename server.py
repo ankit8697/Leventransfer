@@ -3,6 +3,7 @@ from Crypto.Cipher import AES
 import sys, getopt, getpass
 from Crypto.Hash import SHA256
 from Crypto.Cipher import PKCS1_OAEP
+import time
 from netsim.netinterface import network_interface
 
 NET_PATH = './netsim/'
@@ -51,6 +52,8 @@ while True:
     status, msg = netif.receive_msg(blocking=False)     # when returns, status is True and msg contains a message 
     if status:
         username, password, timestamp, symkey = parse_message(msg)
+    else: 
+        time.sleep(2)
         
 
 
