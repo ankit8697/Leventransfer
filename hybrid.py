@@ -225,11 +225,7 @@ elif operation == 'dec':
             print('Error: Public key file is missing, signature cannot be verified.')
         else:
             try:
-<<<<<<< HEAD
-                pubkey = ""
-=======
                 pubkey =
->>>>>>> c5e86f1d57d1b8f6f7608875aaddf37ef8c37bf0
                 pubkey = RSA.import_key(pubkeystr)
                 verifier = PKCS1_PSS.new(pubkey)
                 h = SHA256.new()

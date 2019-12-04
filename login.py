@@ -1,6 +1,8 @@
 import sys, getopt, getpass
 from Crypto.PublicKey import RSA
 from Crypto.Cipher import AES
+from Crypto.Hash import SHA256
+from netsim.netinterface import network_interface
 
 username = ''
 password = ''
@@ -32,14 +34,19 @@ for opt, arg in opts:
     elif opt in ('-p', '--password'):
         password = arg
 
-def message_header():
+def generate_hashed_payload(username, password):
+    hashfnUsername = SHA256.new()
+    hashfnUsername.update(username)
+    hashed_username = hashfnUsername.digest()
+    hashfnPassword = SHA256.new()
+    hashfnPassword.update(password)
+    hashed_password = hashfnPassword.digest()
 
-hashfn = SHA256.new()
+    username_length = len(hashed_username)
 
-hashfn.update(username)
-hashfn.update(password)
+    payload = hashed_username + hashed_password
+    return payload, username_length
 
-hashed_user = hashfn.digest()
 
 pubkey = load_publickey(pubkeyfile)
 RSAcipher = PKCS1_OAEP.new(pubkey)
@@ -50,3 +57,6 @@ iv = Random.get_random_bytes(AES.block_size)
 AEScipher = AES.new(key, AES.MODE_CBC, iv)
 
 encsymkey = RSAcipher.encrypt(symkey)
+
+
+payload, username_length = generate_hashed_payload(username, password)
