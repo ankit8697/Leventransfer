@@ -235,6 +235,20 @@ elif operation == 'dec':
                 if yn != 'y':
                     sys.exit(1)
 
+    
+    # load the private key from the private key file and 
+    # create the RSA cipher object
+    keypair = load_keypair(privkeyfile)
+    RSAcipher = PKCS1_OAEP.new(keypair)
+
+    #decrypt the AES key and create the AES cipher object
+    symkey = RSAcipher.decrypt(encsymkey)  
+    AEScipher = AES.new(symkey, AES.MODE_CBC, iv)	
+	
+    # decrypt the ciphertext and remove padding
+    padded_plaintext = AEScipher.decrypt(ciphertext)
+    plaintext = Padding.unpad(padded_plaintext, AES.block_size, style='pkcs7')
+    
     #Write out the plaintext into the output file
     with open(outputfile, 'wb') as f:
         f.write(plaintext)
