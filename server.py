@@ -3,8 +3,13 @@ from Crypto.Cipher import AES
 from Crypto.Hash import SHA256
 from netsim.netinterface import network_interface
 
-NET_PATH = './netsim/S'
+NET_PATH = './netsim/'
 OWN_ADDR = 'S'
+
+
+private_key_file = open('test_keypair.pem', 'rb')
+private_key = private_key_file.read()
+
 
 netif = network_interface(NET_PATH, OWN_ADDR)
 print('Main loop started...')
