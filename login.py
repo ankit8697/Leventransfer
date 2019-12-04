@@ -27,6 +27,8 @@ for opt, arg in opts:
 
 payload, username_length = generate_hashed_payload(username, password)
 
+
+
 def generate_hashed_payload(username, password):
     hashfnUsername = SHA256.new()
     hashfnUsername.update(username)
