@@ -3,12 +3,16 @@ from Crypto.PublicKey import RSA
 from Crypto.Cipher import PKCS1_OAEP
 from Crypto.Cipher import AES
 from Crypto.Hash import SHA256
+from Crypto.Signature import pss
 from Crypto import Random
 from netsim.netinterface import network_interface
 from datetime import datetime
 
-# Client Name will be X
-
+# Assumption: Username will be OWN_ADDR
+NET_PATH = './netsim/'
+OWN_ADDR = ''
+session_key = ''
+nonce = ''
 username = ''
 password = ''
 pubkeyfile = 'test_pubkey.pem'
@@ -52,13 +56,11 @@ for opt, arg in opts:
     elif opt in ('-p', '--password'):
         password = arg
 
-
 #generate login message
 def generate_message(username, password):
     payload = generate_payload(username, password)
     header = generate_message_header(len(payload))
     return header + payload
-
 
 # generate message header (5 bytes)
 def generate_message_header(msg_length):
@@ -67,11 +69,9 @@ def generate_message_header(msg_length):
     header_length = msg_length.to_bytes(2, byteorder='big') # message length
     return header_version + header_type + header_length
 
-
 # generate payload for login message
 def generate_payload(username, password):
     return generate_hashed_credentials(username, password) + generate_timestamp() + generate_sk() + generate_nonce()
-
 
 # hash user credentials
 def generate_hashed_credentials(username, password):
@@ -85,18 +85,48 @@ def generate_hashed_credentials(username, password):
     credentials = hashed_username + hashed_password
     return credentials
 
-
 # generate current timestamp (20 bytes)
 def generate_timestamp():
     dt = datetime.now()
     return dt.strftime('%Y%m%d%H%M%S%f').encode("utf-8")
 
-
 # generate session symmetric key ()
 def generate_sk():
-    return Random.get_random_bytes(AES.block_size)
+    session_key = Random.get_random_bytes(AES.block_size)
+    return session_key
 
 def generate_nonce():
-    return Random.get_random_bytes(AES.block_size/2)
+    nonce = Random.get_random_bytes(AES.block_size/2)
+    return nonce
 
-print(len(generate_message("bob", "abc")))
+# print(len(generate_message("bob", "abc")))
+
+OWN_ADDR = username
+netif = network_interface(NET_PATH, OWN_ADDR)
+logged_in = False
+while True:
+    if not logged_in:
+        message = generate_message(username, password)
+        netif.send_msg('S', message)
+        status, msg = netif.receive_msg(blocking=True)
+        if status:
+            cipher = AES.new(session_key, AES.MODE_CTR, nonce=nonce) 
+            pubkey = load_publickey('test_pubkey.pem')
+            verifier = pss.new(pubkey)
+            h = SHA256.new()
+            h.update(msg[:-7])
+            try:
+                verifier.verify(h, msg[-7:])
+            except (ValueError, TypeError) as e:
+                print('That username and password does not exist. Please try again.')
+                break
+            print('Login Successful. Please enter your commands.')
+            logged_in = True
+    
+    else:
+        # We are now ready to send commands
+        
+
+    if input('Continue? (y/n): ') == 'n': break
+    
+	

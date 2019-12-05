@@ -10,6 +10,7 @@ from netsim.netinterface import network_interface
 
 NET_PATH = './netsim/'
 OWN_ADDR = 'S'
+CLIENT_ADDR = ''
 
 netif = network_interface(NET_PATH, OWN_ADDR)
 
@@ -67,9 +68,9 @@ def send_success_or_failure(success, symkey, nonce):
     hashfn.update(symkey)
     signature = signer.sign(hashfn)
     payload = message + signature
-    netif.send_msg('X', payload)
+    netif.send_msg(CLIENT_ADDR, payload)
     
-
+logged_in = False
 print('Server loop started...')
 while True:
 # Calling receive_msg() in non-blocking mode ... 
@@ -78,24 +79,23 @@ while True:
 #	else: time.sleep(2)        # otherwise msg is empty
 
 # Calling receive_msg() in blocking mode ...
-    status, msg = netif.receive_msg(blocking=False)     # when returns, status is True and msg contains a message 
-    if status:
-        username, password, timestamp, symkey, nonce = parse_login_message(msg)
-        with open('donotopen.json', 'rb') as f:
-            username_label_length = len(b'Username Hash')
-            password_label_length = len(b'Password Hash')
-            credentials = f.read()
-            logged_in = False
-            for i in range(4):
-                stored_username = credentials[(i+1) * (username_label_length):(i+1) * (username_label_length+32)]
-                stored_password = credentials[(i+1) * (username_label_length+32+password_label_length) : (i+1) * (username_label_length+32+password_label_length+32)]
-                if username == stored_username and password == stored_password:
-                    logged_in = True
-            send_success_or_failure(logged_in, symkey, nonce)
-                
-    else: 
-        time.sleep(2)
-        
-
+    if not logged_in:
+        status, msg = netif.receive_msg(blocking=True)     # when returns, status is True and msg contains a message 
+        if status:
+            username, password, timestamp, symkey, nonce = parse_login_message(msg)
+            with open('donotopen.json', 'rb') as f:
+                username_label_length = len(b'Username Hash')
+                password_label_length = len(b'Password Hash')
+                credentials = f.read()
+                for i in range(4):
+                    stored_username = credentials[(i+1) * (username_label_length):(i+1) * (username_label_length+32)]
+                    stored_password = credentials[(i+1) * (username_label_length+32+password_label_length) : (i+1) * (username_label_length+32+password_label_length+32)]
+                    if username == stored_username and password == stored_password:
+                        logged_in = True
+                        CLIENT_ADDR = username
+                send_success_or_failure(logged_in, symkey, nonce)
+    
+    else:
+        # We are now ready to accept commands
 
 
