@@ -35,7 +35,7 @@ def load_publickey(pubkeyfile):
         print('Error: Cannot import public key from file ' + pubkeyfile)
         sys.exit(1)
 
-def parse_message(msg):
+def parse_login_message(msg):
     keypair = load_keypair()
     RSAcipher = PKCS1_OAEP.new(keypair)
     type_of_message = msg[:1]
@@ -70,8 +70,6 @@ def send_success_or_failure(success, symkey, nonce):
     netif.send_msg('X', payload)
     
 
-
-
 print('Server loop started...')
 while True:
 # Calling receive_msg() in non-blocking mode ... 
@@ -82,7 +80,7 @@ while True:
 # Calling receive_msg() in blocking mode ...
     status, msg = netif.receive_msg(blocking=False)     # when returns, status is True and msg contains a message 
     if status:
-        username, password, timestamp, symkey, iv = parse_message(msg)
+        username, password, timestamp, symkey, nonce = parse_login_message(msg)
         with open('donotopen.json', 'rb') as f:
             username_label_length = len(b'Username Hash')
             password_label_length = len(b'Password Hash')
@@ -93,8 +91,8 @@ while True:
                 stored_password = credentials[(i+1) * (username_label_length+32+password_label_length) : (i+1) * (username_label_length+32+password_label_length+32)]
                 if username == stored_username and password == stored_password:
                     logged_in = True
-            if logged_in:
-                success = "Success"
+            send_success_or_failure(logged_in, symkey, nonce)
+                
     else: 
         time.sleep(2)
         

@@ -1,5 +1,6 @@
 import sys, getopt, getpass
 from Crypto.PublicKey import RSA
+from Crypto.Cipher import PKCS1_OAEP
 from Crypto.Cipher import AES
 from Crypto.Hash import SHA256
 from Crypto import Random
@@ -21,7 +22,7 @@ def generate_session_key():
     symkey = Random.get_random_bytes(32) # we need a 256-bit (32-byte) AES key
     sessionkey = Random.get_random_bytes(32)
     iv = Random.get_random_bytes(AES.block_size)
-    AEScipher = AES.new(key, AES.MODE_CBC, iv)
+    AEScipher = AES.new(sessionkey, AES.MODE_CBC, iv)
 
     encsymkey = RSAcipher.encrypt(symkey)
 
