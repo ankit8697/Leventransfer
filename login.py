@@ -125,7 +125,31 @@ while True:
     
     else:
         # We are now ready to send commands
+        command = input('Enter your command: ')
+        if command[:3] == 'MKD':
+            filename = command[7:]
+
+        elif command[:3] == 'RMD':
+            filename = command[7:]
+
+        elif command[:3] == 'GWD':
+            pass
+
+        elif command[:3] == 'CWD':
+            filepath = command[7:]
+
+        elif command[:3] == 'LST':
+            pass
+
+        elif command[:3] == 'UPL':
+            filename = command[7:]
+
+        elif command[:3] == 'DNL':
+            pass
         
+        elif command[:3] == 'RMF':
+            filename = command[7:]
+
 
     if input('Continue? (y/n): ') == 'n': break
     

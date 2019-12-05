@@ -11,6 +11,7 @@ from netsim.netinterface import network_interface
 NET_PATH = './netsim/'
 OWN_ADDR = 'S'
 CLIENT_ADDR = ''
+symkey = ''
 
 netif = network_interface(NET_PATH, OWN_ADDR)
 
@@ -97,5 +98,6 @@ while True:
     
     else:
         # We are now ready to accept commands
+        
 
 
