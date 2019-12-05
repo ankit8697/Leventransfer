@@ -6,6 +6,8 @@ from Crypto import Random
 from netsim.netinterface import network_interface
 from datetime import datetime
 
+# Client Name will be X
+
 username = ''
 password = ''
 pubkeyfile = 'test_pubkey.pem'
@@ -67,7 +69,7 @@ def generate_message_header(msg_length):
 
 # generate payload for login message
 def generate_payload(username, password):
-    return generate_hashed_credentials(username, password) + generate_timestamp() + generate_sk()
+    return generate_hashed_credentials(username, password) + generate_timestamp() + generate_sk() + generate_nonce()
 
 
 # hash user credentials
@@ -93,5 +95,7 @@ def generate_timestamp():
 def generate_sk():
     return Random.get_random_bytes(AES.block_size)
 
+def generate_nonce():
+    return Random.get_random_bytes(AES.block_size/2)
 
 print(len(generate_message("bob", "abc")))

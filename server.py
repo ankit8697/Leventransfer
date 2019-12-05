@@ -1,13 +1,17 @@
 from Crypto.PublicKey import RSA
 from Crypto.Cipher import AES
+from Crypto.Util import Counter
 import sys, getopt, getpass
 from Crypto.Hash import SHA256
 from Crypto.Cipher import PKCS1_OAEP
+from Crypto.Signature import pss
 import time
 from netsim.netinterface import network_interface
 
 NET_PATH = './netsim/'
 OWN_ADDR = 'S'
+
+netif = network_interface(NET_PATH, OWN_ADDR)
 
 def load_keypair():
     privkeyfile = 'test_keypair.pem'
@@ -20,6 +24,15 @@ def load_keypair():
 
     except ValueError:
         print('Error: Cannot import private key from file ' + privkeyfile)
+        sys.exit(1)
+
+def load_publickey(pubkeyfile):
+    with open(pubkeyfile, 'rb') as f:
+        pubkeystr = f.read()
+    try:
+        return RSA.import_key(pubkeystr)
+    except ValueError:
+        print('Error: Cannot import public key from file ' + pubkeyfile)
         sys.exit(1)
 
 def parse_message(msg):
@@ -37,10 +50,28 @@ def parse_message(msg):
         username = decrypted_message[4:username_length]
         password = decrypted_message[4+username_length:4+username_length+password_length]
         timestamp = decrypted_message[4+username_length+password_length:4+username_length+password_length+timestamp_length]
-        symkey = decrypted_message[4+username_length+password_length+timestamp_length:]
-        return username, password, timestamp, symkey
+        symkey = decrypted_message[4+username_length+password_length+timestamp_length:4+username_length+password_length+timestamp_length+AES.block_size]
+        nonce = decrypted_message[-AES.block_size/2:]
+        return username, password, timestamp, symkey, nonce
 
-netif = network_interface(NET_PATH, OWN_ADDR)
+def send_success_or_failure(success, symkey, nonce):
+    message = ''
+    cipher = AES.new(symkey, AES.MODE_CTR, nonce=nonce)
+    if success:
+        message = cipher.encrypt("Success")
+    else:
+        message = cipher.encrypt("Failure")
+    keypair = load_keypair('test_keypair.pem')
+    signer = pss.new(keypair)
+    hashfn = SHA256.new()
+    hashfn.update(symkey)
+    signature = signer.sign(hashfn)
+    payload = message + signature
+    netif.send_msg('X', payload)
+    
+
+
+
 print('Server loop started...')
 while True:
 # Calling receive_msg() in non-blocking mode ... 
@@ -51,7 +82,19 @@ while True:
 # Calling receive_msg() in blocking mode ...
     status, msg = netif.receive_msg(blocking=False)     # when returns, status is True and msg contains a message 
     if status:
-        username, password, timestamp, symkey = parse_message(msg)
+        username, password, timestamp, symkey, iv = parse_message(msg)
+        with open('donotopen.json', 'rb') as f:
+            username_label_length = len(b'Username Hash')
+            password_label_length = len(b'Password Hash')
+            credentials = f.read()
+            logged_in = False
+            for i in range(4):
+                stored_username = credentials[(i+1) * (username_label_length):(i+1) * (username_label_length+32)]
+                stored_password = credentials[(i+1) * (username_label_length+32+password_label_length) : (i+1) * (username_label_length+32+password_label_length+32)]
+                if username == stored_username and password == stored_password:
+                    logged_in = True
+            if logged_in:
+                success = "Success"
     else: 
         time.sleep(2)
         
