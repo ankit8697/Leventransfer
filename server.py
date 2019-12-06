@@ -98,6 +98,4 @@ while True:
     
     else:
         # We are now ready to accept commands
-
-
-
+        pass
