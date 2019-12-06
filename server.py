@@ -7,6 +7,7 @@ from Crypto.Cipher import PKCS1_OAEP
 from Crypto.Signature import pss
 import os
 import time
+import shutil
 from netsim.netinterface import network_interface
 
 NET_PATH = './netsim/'
@@ -196,20 +197,59 @@ while True:
                 netif.send_msg('S', generate_command_message(command))
 
             elif command == 'LST':
-                netif.send_msg('S', generate_command_message(command))
+                try:
+                    items = os.listdir(CURRENT_DIR)
+                except OSError:
+                    print("Getting list of items from %s failed" % CURRENT_DIR)
+                else:
+                    response_code = b'200'
+                    list_of_items = ''
+                    for item in items:
+                        list_of_items += item + '\n'
+                    list_bytes = bytes(list_of_items, 'utf-8')
+                    print('Successfully sent list of items from %s to client' % CURRENT_DIR)
+                
+                encrypted_message = generate_response_message(iv, response_code+list_bytes)
+                netif.send_msg(CLIENT_ADDR, encrypted_message)
+
 
             elif command == 'UPL':
-                name_of_folder = command_arguments[2]
-                netif.send_msg('S', generate_command_message(command))
+                path_of_file = command_arguments[2]
+                try:
+                    shutil.copyfile(path_of_file, CURRENT_DIR)
+                except OSError:
+                    print("Uploading of the file from %s failed" % path_of_file)
+                else:
+                    response_code = b"200"
+                    print("Successfully uploaded the file from %s " % path_of_file)
+
+                encrypted_message = generate_response_message(iv, response_code)
+                netif.send_msg(CLIENT_ADDR, encrypted_message)
 
             elif command == 'DNL':
-                name_of_folder = command_arguments[2]
+                name_of_file = command_arguments[2]
                 destination_path = command_arguments[4]
-                values = command.split(' ')
-                filename = values[2]
-                destination_path = values[4]
-                netif.send_msg('S', generate_command_message(command))
+                try:
+                    shutil.copyfile(CURRENT_DIR+name_of_file, destination_path)
+                except OSError:
+                    print("Downloading of the file %s failed" % name_of_file)
+                else:
+                    response_code = b"200"
+                    print("Successfully downloaded the file %s " % name_of_file)
+
+                encrypted_message = generate_response_message(iv, response_code)
+                netif.send_msg(CLIENT_ADDR, encrypted_message)
 
             elif command == 'RMF':
-                name_of_folder = command_arguments[2]
-                netif.send_msg('S', generate_command_message(command))
+                name_of_file = command_arguments[2]
+                path_to_file = CURRENT_DIR+name_of_file
+                try:
+                    os.remove(path_to_file)
+                except OSError:
+                    print("Removal of the file %s failed" % name_of_file)
+                else:
+                    response_code = b"200"
+                    print("Successfully removed the file %s " % name_of_folder)
+
+                encrypted_message = generate_response_message(iv, response_code)
+                netif.send_msg(CLIENT_ADDR, encrypted_message)
