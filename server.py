@@ -2,9 +2,10 @@ from Crypto.PublicKey import RSA
 from Crypto.Cipher import AES
 from Crypto.Util import Counter
 import sys, getopt, getpass
-from Crypto.Hash import SHA256, HMAC
+from Crypto.Hash import SHA256
 from Crypto.Cipher import PKCS1_OAEP
 from Crypto.Signature import pss
+import os
 import time
 from netsim.netinterface import network_interface
 
@@ -97,6 +98,32 @@ def decrypt_client_payload(msg, iv):
     plaintext = cipher.decrypt(msg)
     return plaintext
 
+# generate message header (5 bytes)
+def generate_message_header(msg_length):
+    header_version = b'\x01\x00'                            # protocol version 1.0
+    header_type = b'\x01'                                   # message type 0
+    header_length = msg_length.to_bytes(2, byteorder='big') # message length
+    return header_version + header_type + header_length
+
+def generate_response_payload(response, iv):
+    cipher = AES.new(symkey, AES.MODE_CBC, iv=iv)
+    ciphertext = cipher.encrypt(response)
+    return ciphertext
+
+def generate_response_mac(payload):
+    h = HMAC.new(symkey, digestmod=SHA256)
+    h.update(payload)
+    mac = h.digest()
+    return mac
+
+def generate_response_message(iv, response):
+    header = generate_message_header(len(response))
+    payload = generate_command_payload(response)
+    mac = generate_command_mac(payload)
+    message = header+iv+payload+mac
+    return message
+
+
 logged_in = False
 print('Server loop started...')
 while True:
@@ -125,6 +152,7 @@ while True:
     else:
         status, msg = netif.receive_msg(blocking=True)
         type_of_message, version, length, iv, payload, mac = parse_command(msg)
+        response_code = b'404'
 
         if verify_mac(mac, payload):
             plaintext = decrypt_client_payload(payload, iv)
@@ -132,8 +160,17 @@ while True:
             command = command_arguments[0]
 
             if command == 'MKD':
-                name_of_folder = command_arguments[2]
-                
+                name_of_folder = f"./netsim/${CLIENT_ADDR}/IN/${command_arguments[2]}"
+                try:
+                    os.mkdir(name_of_folder)
+                except OSError:
+                    print("Creation of the directory %s failed" % name_of_folder)
+                else:
+                    response_code = b"200"
+                    print("Successfully created the directory %s " % path)
+
+                encrypted_message = generate_response_message(iv, response_code)
+                netif.send_msg(CLIENT_ADDR, encrypted_message)
 
             elif command == 'RMD':
                 name_of_folder = command_arguments[2]
