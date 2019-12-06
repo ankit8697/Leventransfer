@@ -1,4 +1,4 @@
-import sys, getopt, getpass
+import sys, getopt, getpass, json
 from Crypto.PublicKey import RSA
 from Crypto.Cipher import PKCS1_OAEP
 from Crypto.Cipher import AES
@@ -7,38 +7,27 @@ from Crypto.Signature import pss
 from Crypto import Random
 from netsim.netinterface import network_interface
 from datetime import datetime
+from base64 import b64encode
 
-# Assumption: Username will be OWN_ADDR
+# protocol codes
+TYPE_LOGIN = 0
+TYPE_SESSION = 1
+LENGTH_HEADER = 21
+LENGTH_ENC_SK = 256
+LENGTH_AUTHTAG = 16
+
+# network variables
 NET_PATH = './netsim/'
 OWN_ADDR = ''
-session_key = ''
-iv = ''
+
+# crypto variables
+sessionkey = ''
 username = ''
 password = ''
 pubkeyfile = 'test_pubkey.pem'
 privkeyfile = 'test_keypair.pem'
 
-def generate_session_key():
-    sessionkey = Random.get_random_bytes
-    pubkey = load_publickey(pubkeyfile)
-    RSAcipher = PKCS1_OAEP.new(pubkey)
-
-    symkey = Random.get_random_bytes(32) # we need a 256-bit (32-byte) AES key
-    sessionkey = Random.get_random_bytes(32)
-    iv = Random.get_random_bytes(AES.block_size)
-    AEScipher = AES.new(sessionkey, AES.MODE_CBC, iv)
-
-    encsymkey = RSAcipher.encrypt(symkey)
-
-def load_publickey(pubkeyfile):
-    with open(pubkeyfile, 'rb') as f:
-        pubkeystr = f.read()
-    try:
-        return RSA.import_key(pubkeystr)
-    except ValueError:
-        print('Error: Cannot import public key from file ' + pubkeyfile)
-        sys.exit(1)
-
+# parse command line arguments
 try:
     opts, args = getopt.getopt(sys.argv[1:], 'hu:p:', ['help', 'username=', 'password='])
 except:
@@ -56,59 +45,118 @@ for opt, arg in opts:
     elif opt in ('-p', '--password'):
         password = arg
 
-#generate login message
-def generate_message(username, password):
-    payload = generate_login_payload(username, password)
-    header = generate_message_header(len(payload))
-    return header + payload
 
-# generate message header (5 bytes)
-def generate_message_header(msg_length):
-    header_version = b'\x01\x00'                            # protocol version 1.0
-    header_type = b'\x01'                                   # message type 0
-    header_length = msg_length.to_bytes(2, byteorder='big') # message length
-    return header_version + header_type + header_length
 
-# generate payload for login message
+def load_publickey(pubkeyfile):
+    with open(pubkeyfile, 'rb') as f:
+        pubkeystr = f.read()
+    try:
+        return RSA.import_key(pubkeystr)
+    except ValueError:
+        print('Error: Cannot import public key from file ' + pubkeyfile)
+        sys.exit(1)
+
+
+# generate message
+def generate_message(msg_type, sessionkey, payload):
+    # generate timestamp and random bytes
+    timestamp = generate_timestamp()
+    random = Random.get_random_bytes(3)
+    nonce = timestamp + random
+
+    # generate encrypted payload and authentication tag
+    AE = AES.new(sessionkey, AES.MODE_GCM, nonce=nonce, mac_len=LENGTH_AUTHTAG)
+
+    if msg_type == TYPE_LOGIN:
+        msg_len = LENGTH_HEADER + LENGTH_ENC_SK + len(payload) + LENGTH_AUTHTAG
+        header = generate_header(msg_type, msg_len, timestamp, random)
+        header_dict = generate_header_dict(header)
+
+        # generate encrypted session key
+        pubkey = load_publickey(pubkeyfile)
+        RSAcipher = PKCS1_OAEP.new(pubkey)
+        enc_sk = RSAcipher.encrypt(sessionkey)
+
+        # generate login message
+        AE.update(header + enc_sk)
+        enc_payload, authtag = AE.encrypt_and_digest(payload)
+
+        msg_k = ['header', 'enc_sessionkey', 'enc_payload', 'authtag']
+        msg_v = [header_dict] + [b64encode(x).decode('utf-8') for x in [enc_sk, enc_payload, authtag]]
+
+    elif msg_type == TYPE_SESSION:
+        msg_len = LENGTH_HEADER + len(payload) + LENGTH_AUTHTAG
+        header = generate_header(msg_type, msg_len, timestamp, random)
+        header_dict = generate_header_dict(header)
+
+        # generate session message
+        AE.update(header)
+        enc_payload, authtag = AE.encrypt_and_digest(payload)
+
+        msg_k = ['header', 'enc_payload', 'authtag']
+        msg_v = [header_dict] + [b64encode(x).decode('utf-8') for x in [enc_payload, authtag]]
+
+    msg = json.dumps(dict(zip(msg_k, msg_v)), indent=2)
+    return msg
+
+
+# generate message header (21 bytes)
+def generate_header(msg_type, msg_length, timestamp, random):
+    version = b'\x01\x00'                            # protocol version 1.0
+    type = msg_type.to_bytes(1, byteorder='big')     # message type
+    length = msg_length.to_bytes(2, byteorder='big') # message length
+
+    return version + type + length + timestamp + random
+
+
+def generate_header_dict(header):
+    version = ord(header[:1]) + ord(header[1:2]) / 10
+    type = int.from_bytes(header[2:3], byteorder="big")
+    length = int.from_bytes(header[3:5], byteorder="big")
+    timestamp = header[5:18].decode('utf-8')
+    random = b64encode(header[18:21]).decode('utf-8')
+
+    header_k = ['version', 'type', 'length', 'timestamp', 'random']
+    header_v = [version, type, length, timestamp, random]
+
+    header_dict = dict(zip(header_k, header_v))
+    return header_dict
+
+
+# generate login message payload
 def generate_login_payload(username, password):
-    return generate_hashed_credentials(username, password) + generate_timestamp() + generate_sk() + generate_iv()
+    return (username + password).encode("utf-8")
 
-# hash user credentials
-def generate_hashed_credentials(username, password):
-    hashfnUsername = SHA256.new()
-    hashfnUsername.update(username.encode("utf-8"))
-    hashed_username = hashfnUsername.digest()
-    hashfnPassword = SHA256.new()
-    hashfnPassword.update(password.encode("utf-8"))
-    hashed_password = hashfnPassword.digest()
 
-    credentials = hashed_username + hashed_password
-    return credentials
-
-# generate current timestamp (20 bytes)
+# generate UNIX timestamp with millisecond precision (13 bytes)
 def generate_timestamp():
     dt = datetime.now()
-    return dt.strftime('%Y%m%d%H%M%S%f').encode("utf-8")
+    return str(int(dt.timestamp() * 1e3)).encode("utf-8")
 
-# generate session symmetric key ()
-def generate_sk():
-    session_key = Random.get_random_bytes(AES.block_size)
-    return session_key
+
+# generate a session key used for AES
+def generate_sessionkey():
+    sessionkey = Random.get_random_bytes(32)
+    return sessionkey
+
 
 def generate_iv():
     iv = Random.get_random_bytes(AES.block_size)
     return iv
+
 
 def generate_command_payload(command):
     cipher = AES.new(session_key, AES.MODE_CBC, iv=iv)
     ciphertext = cipher.encrypt(command)
     return ciphertext
 
+
 def generate_command_mac(payload):
     h = HMAC.new(session_key, digestmod=SHA256)
     h.update(payload)
     mac = h.digest()
     return mac
+
 
 def generate_command_message(command):
     header = generate_message_header(len(command))
@@ -117,6 +165,7 @@ def generate_command_message(command):
     message = header+iv+payload+mac
     return message
 # print(len(generate_message("bob", "abc")))
+
 
 def parse_command_reply(msg):
     type_of_message = msg[:1]
@@ -127,11 +176,11 @@ def parse_command_reply(msg):
     mac = msg[4+AES.block_size+length:]
     return iv, payload, mac
 
-def verify_mac(mac, payload):
+def verify_mac(mac):
     h = HMAC.new(session_key, digestmod=SHA256)
     h.update(payload)
     try:
-        h.verify(mac)
+        mac = h.verify()
     except (ValueError) as e:
         return False
     return True
@@ -167,12 +216,11 @@ while True:
         # We are now ready to send commands
         command = input('Enter your command: ')
         if command[:3] == 'MKD':
-            values = command.split(' ')
-            foldername = values[2]
+            foldername = command[7:]
             netif.send_msg('S', generate_command_message(command))
             status, msg = netif.receive_msg(blocking=True)
             iv, payload, mac = parse_command_reply(msg)
-            if verify_mac(mac, payload):
+            if verify_mac(mac):
                 plaintext = decrypt_server_payload(msg, iv)
                 if plaintext == b'200':
                     print(f'the folder ${foldername} has been created.')
@@ -182,25 +230,21 @@ while True:
                 print('MAC not verified. Please try again')
 
         elif command[:3] == 'RMD':
-            values = command.split(' ')
-            foldername = values[2]
+            foldername = command[7:]
             netif.send_msg('S', generate_command_message(command))
 
         elif command[:3] == 'GWD':
-            #current folder is appended to the response_code! Check server side code
             netif.send_msg('S', generate_command_message(command))
 
         elif command[:3] == 'CWD':
-            values = command.split(' ')
-            filepath = values[2]
+            filepath = command[7:]
             netif.send_msg('S', generate_command_message(command))
 
         elif command[:3] == 'LST':
             netif.send_msg('S', generate_command_message(command))
 
         elif command[:3] == 'UPL':
-            values = command.split(' ')
-            foldername = values[2]
+            filename = command[7:]
             netif.send_msg('S', generate_command_message(command))
 
         elif command[:3] == 'DNL':
@@ -210,8 +254,7 @@ while True:
             netif.send_msg('S', generate_command_message(command))
 
         elif command[:3] == 'RMF':
-            values = command.split(' ')
-            filename = values[2]
+            filename = command[7:]
             netif.send_msg('S', generate_command_message(command))
 
 

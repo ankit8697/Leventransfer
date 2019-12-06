@@ -68,7 +68,8 @@ def generate_message_header(msg_length):
 
 # generate payload for login message
 def generate_payload(username, password):
-    return generate_hashed_credentials(username, password) + generate_timestamp() + generate_sk()
+    return generate_hashed_credentials(username, password) + \
+           generate_timestamp() + generate_session_key()
 
 
 # hash user credentials
@@ -87,13 +88,15 @@ def generate_hashed_credentials(username, password):
 # generate current timestamp (20 bytes)
 def generate_timestamp():
     dt = datetime.now()
+    timestamp = int(dt.timestamp() * 1e3)
     # return dt.strftime('%Y%m%d%H%M%S%f').encode("utf-8")
-    return int(dt.timestamp() * 1e6)
+    return timestamp.to_bytes(13, byteorder='big')
 
 
 # generate session symmetric key ()
-def generate_sk():
+def generate_session_key():
     return Random.get_random_bytes(AES.block_size)
 
-
+i = 1
+print(i.to_bytes(1, byteorder='big'))
 print(generate_timestamp())
