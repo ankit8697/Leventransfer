@@ -2,7 +2,7 @@ from Crypto.PublicKey import RSA
 from Crypto.Cipher import AES
 from Crypto.Util import Counter
 import sys, getopt, getpass
-from Crypto.Hash import SHA256
+from Crypto.Hash import SHA256, HMAC
 from Crypto.Cipher import PKCS1_OAEP
 from Crypto.Signature import pss
 import os
@@ -118,14 +118,15 @@ def generate_response_mac(payload):
 
 def generate_response_message(iv, response):
     header = generate_message_header(len(response))
-    payload = generate_command_payload(response)
-    mac = generate_command_mac(payload)
+    payload = generate_response_payload(response)
+    mac = generate_response_mac(payload)
     message = header+iv+payload+mac
     return message
 
 
 logged_in = False
 print('Server loop started...')
+CURRENT_DIR = NET_PATH
 while True:
 # Calling receive_msg() in non-blocking mode ...
 #	status, msg = netif.receive_msg(blocking=False)
@@ -147,6 +148,7 @@ while True:
                     if username == stored_username and password == stored_password:
                         logged_in = True
                         CLIENT_ADDR = username
+                        CURRENT_DIR += CLIENT_ADDR+'/IN/'
                 send_success_or_failure(logged_in, symkey, iv)
 
     else:
@@ -160,14 +162,14 @@ while True:
             command = command_arguments[0]
 
             if command == 'MKD':
-                name_of_folder = f"./netsim/${CLIENT_ADDR}/IN/${command_arguments[2]}"
+                name_of_folder = f"${CURRENT_DIR}${command_arguments[2]}"
                 try:
                     os.mkdir(name_of_folder)
                 except OSError:
                     print("Creation of the directory %s failed" % name_of_folder)
                 else:
                     response_code = b"200"
-                    print("Successfully created the directory %s " % path)
+                    print("Successfully created the directory %s " % name_of_folder)
 
                 encrypted_message = generate_response_message(iv, response_code)
                 netif.send_msg(CLIENT_ADDR, encrypted_message)
