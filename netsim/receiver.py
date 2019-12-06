@@ -2,7 +2,7 @@
 #receiver.py
 
 import os, sys, getopt, time
-from netinterface import network_interface
+from netsim.netinterface import network_interface
 
 NET_PATH = './'
 OWN_ADDR = 'B'
