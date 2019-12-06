@@ -152,7 +152,7 @@ while True:
     else:
         status, msg = netif.receive_msg(blocking=True)
         type_of_message, version, length, iv, payload, mac = parse_command(msg)
-        response_code = b'404'
+        response_code = b'500'
 
         if verify_mac(mac, payload):
             plaintext = decrypt_client_payload(payload, iv)
@@ -167,14 +167,24 @@ while True:
                     print("Creation of the directory %s failed" % name_of_folder)
                 else:
                     response_code = b"200"
-                    print("Successfully created the directory %s " % path)
+                    print("Successfully created the directory %s " % name_of_folder)
 
                 encrypted_message = generate_response_message(iv, response_code)
                 netif.send_msg(CLIENT_ADDR, encrypted_message)
 
             elif command == 'RMD':
-                name_of_folder = command_arguments[2]
-                netif.send_msg('S', generate_command_message(command))
+                #os.rmdir(path)
+                name_of_folder = f"./netsim/${CLIENT_ADDR}/IN/${command_arguments[2]}"
+                try:
+                    os.rmdir(name_of_folder)
+                except OSError:
+                    print("Creation of the directory %s failed" % name_of_folder)
+                else:
+                    response_code = b"200"
+                    print("Successfully created the directory %s " % name_of_folder)
+
+                encrypted_message = generate_response_message(iv, response_code)
+                netif.send_msg(CLIENT_ADDR, encrypted_message)
 
             elif command == 'GWD':
                 netif.send_msg('S', generate_command_message(command))
