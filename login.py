@@ -5,6 +5,7 @@ from Crypto.Hash import SHA256
 from Crypto import Random
 from netsim.netinterface import network_interface
 from datetime import datetime
+from time import time
 
 username = ''
 password = ''
@@ -86,7 +87,8 @@ def generate_hashed_credentials(username, password):
 # generate current timestamp (20 bytes)
 def generate_timestamp():
     dt = datetime.now()
-    return dt.strftime('%Y%m%d%H%M%S%f').encode("utf-8")
+    # return dt.strftime('%Y%m%d%H%M%S%f').encode("utf-8")
+    return int(dt.timestamp() * 1e6)
 
 
 # generate session symmetric key ()
@@ -94,4 +96,4 @@ def generate_sk():
     return Random.get_random_bytes(AES.block_size)
 
 
-print(len(generate_message("bob", "abc")))
+print(generate_timestamp())
