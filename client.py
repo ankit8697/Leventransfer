@@ -127,11 +127,11 @@ def parse_command_reply(msg):
     mac = msg[4+AES.block_size+length:]
     return iv, payload, mac
 
-def verify_mac(mac):
+def verify_mac(mac, payload):
     h = HMAC.new(session_key, digestmod=SHA256)
     h.update(payload)
     try:
-        mac = h.verify()
+        h.verify(mac)
     except (ValueError) as e:
         return False
     return True
@@ -167,11 +167,12 @@ while True:
         # We are now ready to send commands
         command = input('Enter your command: ')
         if command[:3] == 'MKD':
-            foldername = command[7:]
+            values = command.split(' ')
+            foldername = values[2]
             netif.send_msg('S', generate_command_message(command))
             status, msg = netif.receive_msg(blocking=True)
             iv, payload, mac = parse_command_reply(msg)
-            if verify_mac(mac):
+            if verify_mac(mac, payload):
                 plaintext = decrypt_server_payload(msg, iv)
                 if plaintext == b'200':
                     print(f'the folder ${foldername} has been created.')
@@ -181,21 +182,24 @@ while True:
                 print('MAC not verified. Please try again')
 
         elif command[:3] == 'RMD':
-            foldername = command[7:]
+            values = command.split(' ')
+            foldername = values[2]
             netif.send_msg('S', generate_command_message(command))
 
         elif command[:3] == 'GWD':
             netif.send_msg('S', generate_command_message(command))
 
         elif command[:3] == 'CWD':
-            filepath = command[7:]
+            values = command.split(' ')
+            filepath = values[2]
             netif.send_msg('S', generate_command_message(command))
 
         elif command[:3] == 'LST':
             netif.send_msg('S', generate_command_message(command))
 
         elif command[:3] == 'UPL':
-            filename = command[7:]
+            values = command.split(' ')
+            foldername = values[2]
             netif.send_msg('S', generate_command_message(command))
 
         elif command[:3] == 'DNL':
@@ -205,7 +209,8 @@ while True:
             netif.send_msg('S', generate_command_message(command))
 
         elif command[:3] == 'RMF':
-            filename = command[7:]
+            values = command.split(' ')
+            filename = values[2]
             netif.send_msg('S', generate_command_message(command))
 
 

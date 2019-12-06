@@ -53,10 +53,10 @@ def parse_login_message(msg):
         password = decrypted_message[4+username_length:4+username_length+password_length]
         timestamp = decrypted_message[4+username_length+password_length:4+username_length+password_length+timestamp_length]
         symkey = decrypted_message[4+username_length+password_length+timestamp_length:4+username_length+password_length+timestamp_length+AES.block_size]
-        nonce = decrypted_message[-AES.block_size/2:]
-        return username, password, timestamp, symkey, nonce
+        iv = decrypted_message[-AES.block_size:]
+        return username, password, timestamp, symkey, iv
 
-def send_success_or_failure(success, symkey, nonce):
+def send_success_or_failure(success, symkey, iv):
     message = ''
     cipher = AES.new(symkey, AES.MODE_CBC, iv=iv)
     if success:
@@ -66,7 +66,7 @@ def send_success_or_failure(success, symkey, nonce):
     keypair = load_keypair('test_keypair.pem')
     signer = pss.new(keypair)
     hashfn = SHA256.new()
-    hashfn.update(symkey)
+    hashfn.update(message)
     signature = signer.sign(hashfn)
     payload = message + signature
     netif.send_msg(CLIENT_ADDR, payload)
