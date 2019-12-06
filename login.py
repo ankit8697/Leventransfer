@@ -12,7 +12,7 @@ from datetime import datetime
 NET_PATH = './netsim/'
 OWN_ADDR = ''
 session_key = ''
-nonce = ''
+iv = ''
 username = ''
 password = ''
 pubkeyfile = 'test_pubkey.pem'
@@ -95,9 +95,9 @@ def generate_sk():
     session_key = Random.get_random_bytes(AES.block_size)
     return session_key
 
-def generate_nonce():
-    nonce = Random.get_random_bytes(AES.block_size/2)
-    return nonce
+def generate_iv():
+    iv = Random.get_random_bytes(AES.block_size)
+    return iv
 
 # print(len(generate_message("bob", "abc")))
 
@@ -110,7 +110,7 @@ while True:
         netif.send_msg('S', message)
         status, msg = netif.receive_msg(blocking=True)
         if status:
-            cipher = AES.new(session_key, AES.MODE_CTR, nonce=nonce) 
+            cipher = AES.new(session_key, AES.MODE_CBC, iv=iv) 
             pubkey = load_publickey('test_pubkey.pem')
             verifier = pss.new(pubkey)
             h = SHA256.new()
@@ -146,7 +146,7 @@ while True:
 
         elif command[:3] == 'DNL':
             pass
-        
+
         elif command[:3] == 'RMF':
             filename = command[7:]
 

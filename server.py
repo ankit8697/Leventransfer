@@ -58,7 +58,7 @@ def parse_login_message(msg):
 
 def send_success_or_failure(success, symkey, nonce):
     message = ''
-    cipher = AES.new(symkey, AES.MODE_CTR, nonce=nonce)
+    cipher = AES.new(symkey, AES.MODE_CBC, iv=iv)
     if success:
         message = cipher.encrypt("Success")
     else:
@@ -83,7 +83,7 @@ while True:
     if not logged_in:
         status, msg = netif.receive_msg(blocking=True)     # when returns, status is True and msg contains a message 
         if status:
-            username, password, timestamp, symkey, nonce = parse_login_message(msg)
+            username, password, timestamp, symkey, iv = parse_login_message(msg)
             with open('donotopen.json', 'rb') as f:
                 username_label_length = len(b'Username Hash')
                 password_label_length = len(b'Password Hash')
@@ -94,10 +94,10 @@ while True:
                     if username == stored_username and password == stored_password:
                         logged_in = True
                         CLIENT_ADDR = username
-                send_success_or_failure(logged_in, symkey, nonce)
+                send_success_or_failure(logged_in, symkey, iv)
     
     else:
         # We are now ready to accept commands
-        
+
 
 
