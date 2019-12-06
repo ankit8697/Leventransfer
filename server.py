@@ -176,25 +176,42 @@ while True:
                 netif.send_msg(CLIENT_ADDR, encrypted_message)
 
             elif command == 'RMD':
-                #os.rmdir(path)
-                name_of_folder = f"./netsim/${CLIENT_ADDR}/IN/${command_arguments[2]}"
+                name_of_folder = f"${CURRENT_DIR}${command_arguments[2]}"
                 try:
                     os.rmdir(name_of_folder)
                 except OSError:
-                    print("Creation of the directory %s failed" % name_of_folder)
+                    print("Deletion of the directory %s failed" % name_of_folder)
                 else:
                     response_code = b"200"
-                    print("Successfully created the directory %s " % name_of_folder)
+                    print("Successfully deleted the directory %s " % name_of_folder)
 
                 encrypted_message = generate_response_message(iv, response_code)
                 netif.send_msg(CLIENT_ADDR, encrypted_message)
 
             elif command == 'GWD':
-                netif.send_msg('S', generate_command_message(command))
+                try:
+                    current_folder = os.path.basename(CURRENT_DIR)
+                except OSError:
+                    print("The current folder is %s" % current_folder)
+                else:
+                    response_code = b"200"
+                    print('There was an error in getting the name of the current folder.')
+
+                encrypted_message = generate_response_message(iv, response_code + current_folder)
+                netif.send_msg(CLIENT_ADDR, encrypted_message)
 
             elif command == 'CWD':
                 path_of_folder = command_arguments[2]
-                netif.send_msg('S', generate_command_message(command))
+                try:
+                    os.chdir(path_of_folder)
+                except OSError:
+                    print("The current folder is now %s" % current_folder)
+                else:
+                    response_code = b"200"
+                    print('That path is invalid or that folder could not be found.')
+                    
+                encrypted_message = generate_response_message(iv, response_code)
+                netif.send_msg(CLIENT_ADDR, encrypted_message)
 
             elif command == 'LST':
                 try:
