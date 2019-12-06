@@ -2,7 +2,7 @@ import sys, getopt, getpass
 from Crypto.PublicKey import RSA
 from Crypto.Cipher import PKCS1_OAEP
 from Crypto.Cipher import AES
-from Crypto.Hash import SHA256
+from Crypto.Hash import SHA256, HMAC
 from Crypto.Signature import pss
 from Crypto import Random
 from netsim.netinterface import network_interface
@@ -58,7 +58,7 @@ for opt, arg in opts:
 
 #generate login message
 def generate_message(username, password):
-    payload = generate_payload(username, password)
+    payload = generate_login_payload(username, password)
     header = generate_message_header(len(payload))
     return header + payload
 
@@ -70,8 +70,8 @@ def generate_message_header(msg_length):
     return header_version + header_type + header_length
 
 # generate payload for login message
-def generate_payload(username, password):
-    return generate_hashed_credentials(username, password) + generate_timestamp() + generate_sk() + generate_nonce()
+def generate_login_payload(username, password):
+    return generate_hashed_credentials(username, password) + generate_timestamp() + generate_sk() + generate_iv()
 
 # hash user credentials
 def generate_hashed_credentials(username, password):
@@ -99,6 +99,23 @@ def generate_iv():
     iv = Random.get_random_bytes(AES.block_size)
     return iv
 
+def generate_command_payload(command):
+    cipher = AES.new(session_key, AES.MODE_CBC, iv=iv)
+    ciphertext = cipher.encrypt(command)
+    return ciphertext
+
+def generate_command_mac(payload):
+    h = HMAC.new(session_key, digestmod=SHA256)
+    h.update(payload)
+    mac = h.digest()
+    return mac
+
+def generate_command_message(command):
+    header = generate_message_header(len(command))
+    payload = generate_command_payload(command)
+    mac = generate_command_mac(payload)
+    message = header+iv+payload+mac
+    return message
 # print(len(generate_message("bob", "abc")))
 
 OWN_ADDR = username
@@ -127,28 +144,37 @@ while True:
         # We are now ready to send commands
         command = input('Enter your command: ')
         if command[:3] == 'MKD':
-            filename = command[7:]
+            foldername = command[7:]
+            netif.send_msg('S', generate_command_message(command))
+            netif.receive_msg(blocking=True)
 
         elif command[:3] == 'RMD':
-            filename = command[7:]
+            foldername = command[7:]
+            netif.send_msg('S', generate_command_message(command))
 
         elif command[:3] == 'GWD':
-            pass
+            netif.send_msg('S', generate_command_message(command))
 
         elif command[:3] == 'CWD':
             filepath = command[7:]
+            netif.send_msg('S', generate_command_message(command))
 
         elif command[:3] == 'LST':
-            pass
+            netif.send_msg('S', generate_command_message(command))
 
         elif command[:3] == 'UPL':
             filename = command[7:]
+            netif.send_msg('S', generate_command_message(command))
 
         elif command[:3] == 'DNL':
-            pass
+            values = command.split(' ')
+            filename = values[2]
+            destination_path = values[4]
+            netif.send_msg('S', generate_command_message(command))
 
         elif command[:3] == 'RMF':
             filename = command[7:]
+            netif.send_msg('S', generate_command_message(command))
 
 
     if input('Continue? (y/n): ') == 'n': break
