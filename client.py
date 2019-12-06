@@ -17,6 +17,7 @@ username = ''
 password = ''
 pubkeyfile = 'test_pubkey.pem'
 privkeyfile = 'test_keypair.pem'
+success_error_dict = {200: 'Success', 500: 'Invalid Credentials', 501: 'Timestamp out of Range', 502: 'Unable to Authenticate', 503: 'Bad Mac'}
 
 def generate_session_key():
     sessionkey = Random.get_random_bytes
