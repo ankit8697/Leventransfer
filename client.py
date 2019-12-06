@@ -7,6 +7,7 @@ from Crypto.Signature import pss
 from Crypto import Random
 from netsim.netinterface import network_interface
 from datetime import datetime
+import os
 
 # Assumption: Username will be OWN_ADDR
 NET_PATH = './netsim/'
@@ -150,7 +151,7 @@ while True:
         netif.send_msg('S', message)
         status, msg = netif.receive_msg(blocking=True)
         if status:
-            cipher = AES.new(session_key, AES.MODE_CBC, iv=iv) 
+            cipher = AES.new(session_key, AES.MODE_CBC, iv=iv)
             pubkey = load_publickey('test_pubkey.pem')
             verifier = pss.new(pubkey)
             h = SHA256.new()
@@ -162,7 +163,7 @@ while True:
                 break
             print('Login Successful. Please enter your commands.')
             logged_in = True
-    
+
     else:
         # We are now ready to send commands
         command = input('Enter your command: ')
@@ -210,5 +211,3 @@ while True:
 
 
     if input('Continue? (y/n): ') == 'n': break
-    
-	
