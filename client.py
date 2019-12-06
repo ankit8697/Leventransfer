@@ -150,7 +150,7 @@ while True:
         netif.send_msg('S', message)
         status, msg = netif.receive_msg(blocking=True)
         if status:
-            cipher = AES.new(session_key, AES.MODE_CBC, iv=iv) 
+            cipher = AES.new(session_key, AES.MODE_CBC, iv=iv)
             pubkey = load_publickey('test_pubkey.pem')
             verifier = pss.new(pubkey)
             h = SHA256.new()
@@ -162,7 +162,7 @@ while True:
                 break
             print('Login Successful. Please enter your commands.')
             logged_in = True
-    
+
     else:
         # We are now ready to send commands
         command = input('Enter your command: ')
@@ -187,6 +187,7 @@ while True:
             netif.send_msg('S', generate_command_message(command))
 
         elif command[:3] == 'GWD':
+            #current folder is appended to the response_code! Check server side code
             netif.send_msg('S', generate_command_message(command))
 
         elif command[:3] == 'CWD':
@@ -215,5 +216,3 @@ while True:
 
 
     if input('Continue? (y/n): ') == 'n': break
-    
-	
