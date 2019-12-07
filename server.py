@@ -157,7 +157,7 @@ def generate_payload(response):
 
 
 ### process message functions
-# process client message
+# process client message to get response code and decrypted payload
 def process_message(msg_type, msg, sessionkey = None):
     try:
         msg_dict = json.loads(msg)
@@ -167,10 +167,9 @@ def process_message(msg_type, msg, sessionkey = None):
         if msg_type == TYPE_LOGIN:
             enc_sessionkey = b64decode(msg_dict['enc_sessionkey'].encode('utf-8'))
             sessionkey = decrypt_sessionkey(enc_sessionkey)
-            print(sessionkey)
             msg_length += len(enc_sessionkey)
             # failure to decrypt session key returns in NULL response code
-            if (not sessionkey): return None
+            if (not sessionkey): return None, None
 
         header_dict = msg_dict['header']
         digit_1 = int(header_dict['version'])
@@ -189,11 +188,11 @@ def process_message(msg_type, msg, sessionkey = None):
 
         # verify header length
         if msg_length != header_dict['length']:
-            return BAD_MSG_LENGTH
+            return BAD_MSG_LENGTH, None
 
         # verify timestamp
         if not valid_timestamp(header_dict['timestamp']):
-            return BAD_TIMESTAMP
+            return BAD_TIMESTAMP, None
 
         # authenticate and decrypt payload
         AE = AES.new(sessionkey, AES.MODE_GCM, nonce=header_nonce)
@@ -203,18 +202,10 @@ def process_message(msg_type, msg, sessionkey = None):
             AE.update(header)
 
         payload = AE.decrypt_and_verify(enc_payload, authtag)
-        print(payload)
+        return SUCCESS, payload
 
-        '''
-        jv = {k:b64decode(b64[k]) for k in json_k}
-
-        cipher = AES.new(key, AES.MODE_EAX, nonce=jv['nonce'])
-        cipher.update(jv['header'])
-        plaintext = cipher.decrypt_and_verify(jv['ciphertext'], jv['tag'])
-        print("The message was: " + plaintext)
-        '''
     except (ValueError, KeyError):
-        return BAD_AUTH_AND_DEC
+        return BAD_AUTH_AND_DEC, None
 
 
 # get session key
@@ -236,36 +227,18 @@ def valid_timestamp(timestamp):
     return (delta_t >= 0) and (delta_t < tolerance)
 
 
-def parse_login_message(msg):
-    keypair = load_keypair()
-    RSAcipher = PKCS1_OAEP.new(keypair)
-    type_of_message = msg[:1]
-    version = msg[1:2]
-    length = msg[2:4]
-    payload = msg[4:]
-    decrypted_message = RSAcipher.decrypt(payload)
-    if length == len(decrypted_message):
-        username_length = decrypted_message[:2]
-        password_length = decrypted_message[2:4]
-        timestamp_length = 20
-        username = decrypted_message[4:username_length]
-        password = decrypted_message[4+username_length:4+username_length+password_length]
-        timestamp = decrypted_message[4+username_length+password_length:4+username_length+password_length+timestamp_length]
-        symkey = decrypted_message[4+username_length+password_length+timestamp_length:4+username_length+password_length+timestamp_length+AES.block_size]
-        iv = decrypted_message[-AES.block_size:]
-        return username, password, timestamp, symkey, iv
-
-
-def parse_command(msg):
-    header = msg[:5]
-    type_of_message = header[:1]
-    version = header[1:2]
-    length = header[2:4]
-    iv = msg[5:5+AES.block_size]
-    payload = msg[5+AES.block_size: 5+AES.block_size + length]
-    mac = msg[-AES.block_size:]
-    return type_of_message, version, length, iv, payload, mac
-
+# verify credentials
+def verify_credentials(payload):
+    try:
+        length_username = ord(payload[:1])
+        username = payload[1:length_username + 1].decode('utf-8')
+        password = payload[length_username + 1:].decode('utf-8')
+        print(length_username)
+        print(username)
+        print(password)
+        return True
+    except Exception:
+        return False
 
 '''
 ================================== MAIN CODE ===================================
@@ -423,4 +396,5 @@ sessionkey = client.generate_sessionkey()
 payload = client.generate_login_payload("bob", "abc")
 message = client.generate_message(TYPE_LOGIN, sessionkey, payload)
 print(message)
-print(process_message(TYPE_LOGIN, message))
+code, payload = process_message(TYPE_LOGIN, message)
+verify_credentials(payload)

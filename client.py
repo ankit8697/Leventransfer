@@ -156,9 +156,7 @@ def generate_login_payload(username, password):
 
 # create the command message payload
 def generate_command_payload(command):
-    cipher = AES.new(session_key, AES.MODE_CBC, iv=iv)
-    ciphertext = cipher.encrypt(command)
-    return ciphertext
+    return command.encode("utf-8")
 
 
 def parse_command_reply(msg):
