@@ -1,26 +1,53 @@
+import sys, getopt, getpass, os, time, shutil, json
 from Crypto.PublicKey import RSA
 from Crypto.Cipher import AES
 from Crypto.Util import Counter
-import sys, getopt, getpass
 from Crypto.Hash import SHA256, HMAC
 from Crypto.Cipher import PKCS1_OAEP
 from Crypto.Signature import pss
-import os
-import time
-import shutil
+from Crypto import Random
+from datetime import datetime
+from base64 import b64encode
 from netsim.netinterface import network_interface
 
+
+'''
+=========================== CONSTANTS AND VARIABLES ============================
+'''
+
+# protocol codes
+TYPE_LOGIN = 0
+TYPE_COMMAND = 1
+LENGTH_HEADER = 21
+LENGTH_SIGNATURE = 256
+LENGTH_AUTHTAG = 16
+SUCCESS = '200'          # successful operation (login or command)
+BAD_COMMAND = '500'      # failure to execute command
+BAD_MSG_LENGTH = '501'   # invalid message length in header
+BAD_TIMESTAMP = '502'    # invalid timestamp (expired or in the future)
+BAD_AUTH_AND_DEC = '503' # failure to verify authtag and decrypt
+BAD_CREDENTIALS = '504'  # invalid credentials (username, hash of password)
+BAD_SIGNATURE = '505'    # invalid signature
+TIMESTAMP_WINDOW = 5     # window for timestamp verification
+
+# network variables
 NET_PATH = './netsim/'
 OWN_ADDR = 'S'
 CLIENT_ADDR = ''
-symkey = ''
 NUMBER_OF_USERS = 4
 
-netif = network_interface(NET_PATH, OWN_ADDR)
+# crypto variables
+sessionkey = ''
+
+
+'''
+================================== FUNCTIONS ===================================
+'''
 
 def load_keypair():
     privkeyfile = 'test_keypair.pem'
-    passphrase = getpass.getpass('Enter a passphrase to protect the saved private key')
+    # passphrase = getpass.getpass('Enter a passphrase to protect the saved private key')
+    passphrase = 'cryptography'
 
     with open(privkeyfile, 'rb') as f:
         keypairstr = f.read()
@@ -31,6 +58,7 @@ def load_keypair():
         print('Error: Cannot import private key from file ' + privkeyfile)
         sys.exit(1)
 
+
 def load_publickey(pubkeyfile):
     with open(pubkeyfile, 'rb') as f:
         pubkeystr = f.read()
@@ -39,6 +67,7 @@ def load_publickey(pubkeyfile):
     except ValueError:
         print('Error: Cannot import public key from file ' + pubkeyfile)
         sys.exit(1)
+
 
 def parse_login_message(msg):
     keypair = load_keypair()
@@ -59,20 +88,87 @@ def parse_login_message(msg):
         iv = decrypted_message[-AES.block_size:]
         return username, password, timestamp, symkey, iv
 
-def send_success_or_failure(success, symkey, iv):
-    message = ''
-    cipher = AES.new(symkey, AES.MODE_CBC, iv=iv)
-    if success:
-        message = cipher.encrypt("Success")
-    else:
-        message = cipher.encrypt("Failure")
-    keypair = load_keypair('test_keypair.pem')
-    signer = pss.new(keypair)
-    hashfn = SHA256.new()
-    hashfn.update(message)
-    signature = signer.sign(hashfn)
-    payload = message + signature
-    netif.send_msg(CLIENT_ADDR, payload)
+
+# create server message
+def generate_message(msg_type, sessionkey, payload):
+    # get timestamp and random bytes
+    timestamp = generate_timestamp()
+    random = Random.get_random_bytes(3)
+    nonce = timestamp + random
+
+    # get encrypted payload and authentication tag
+    AE = AES.new(sessionkey, AES.MODE_GCM, nonce=nonce, mac_len=LENGTH_AUTHTAG)
+
+    if msg_type == TYPE_LOGIN:
+        msg_len = LENGTH_HEADER + len(payload) + LENGTH_AUTHTAG + LENGTH_SIGNATURE
+        header = generate_header(msg_type, msg_len, timestamp, random)
+        header_dict = generate_header_dict(header)
+
+        AE.update(header)
+        enc_payload, authtag = AE.encrypt_and_digest(payload)
+
+        keypair = load_keypair()
+        signer = pss.new(keypair)
+        hashfn = SHA256.new()
+        hashfn.update(enc_payload)
+        signature = signer.sign(hashfn)
+
+        msg_k = ['header', 'enc_payload', 'authtag', 'signature']
+        msg_v = [header_dict] + [b64encode(x).decode('utf-8') for x in [enc_payload, authtag, signature]]
+
+    elif msg_type == TYPE_COMMAND:
+        msg_len = LENGTH_HEADER + len(payload) + LENGTH_AUTHTAG
+        header = generate_header(msg_type, msg_len, timestamp, random)
+        header_dict = generate_header_dict(header)
+
+        AE.update(header)
+        enc_payload, authtag = AE.encrypt_and_digest(payload)
+
+        msg_k = ['header', 'enc_payload', 'authtag']
+        msg_v = [header_dict] + [b64encode(x).decode('utf-8') for x in [enc_payload, authtag]]
+
+    msg = json.dumps(dict(zip(msg_k, msg_v)), indent=2)
+    return msg
+
+
+# create message header (21 bytes)
+def generate_header(msg_type, msg_length, timestamp, random):
+    version = b'\x01\x00'                            # protocol version 1.0
+    type = msg_type.to_bytes(1, byteorder='big')     # message type
+    length = msg_length.to_bytes(2, byteorder='big') # message length
+
+    return version + type + length + timestamp + random
+
+
+def generate_header_dict(header):
+    version = ord(header[:1]) + ord(header[1:2]) / 10
+    type = int.from_bytes(header[2:3], byteorder="big")
+    length = int.from_bytes(header[3:5], byteorder="big")
+    timestamp = header[5:18].decode('utf-8')
+    random = b64encode(header[18:21]).decode('utf-8')
+
+    header_k = ['version', 'type', 'length', 'timestamp', 'random']
+    header_v = [version, type, length, timestamp, random]
+
+    header_dict = dict(zip(header_k, header_v))
+    return header_dict
+
+
+# create UNIX timestamp with millisecond precision (13 bytes)
+def generate_timestamp():
+    dt = datetime.now()
+    return str(int(dt.timestamp() * 1e3)).encode("utf-8")
+
+
+# create a session key used for AES
+def generate_sessionkey():
+    sessionkey = Random.get_random_bytes(32)
+    return sessionkey
+
+
+# create the server message payload
+def generate_payload(response):
+    return (response).encode("utf-8")
 
 
 def parse_command(msg):
@@ -85,6 +181,7 @@ def parse_command(msg):
     mac = msg[-AES.block_size:]
     return type_of_message, version, length, iv, payload, mac
 
+
 def verify_mac(mac, payload):
     h = HMAC.new(symkey, digestmod=SHA256)
     h.update(payload)
@@ -94,22 +191,12 @@ def verify_mac(mac, payload):
         return False
     return True
 
+
 def decrypt_client_payload(msg, iv):
     cipher = AES.new(symkey, AES.MODE_CBC, iv=iv)
     plaintext = cipher.decrypt(msg)
     return plaintext
 
-# generate message header (5 bytes)
-def generate_message_header(msg_length):
-    header_version = b'\x01\x00'                            # protocol version 1.0
-    header_type = b'\x01'                                   # message type 0
-    header_length = msg_length.to_bytes(2, byteorder='big') # message length
-    return header_version + header_type + header_length
-
-def generate_response_payload(response, iv):
-    cipher = AES.new(symkey, AES.MODE_CBC, iv=iv)
-    ciphertext = cipher.encrypt(response)
-    return ciphertext
 
 def generate_response_mac(payload):
     h = HMAC.new(symkey, digestmod=SHA256)
@@ -117,17 +204,16 @@ def generate_response_mac(payload):
     mac = h.digest()
     return mac
 
-def generate_response_message(iv, response):
-    header = generate_message_header(len(response))
-    payload = generate_response_payload(response)
-    mac = generate_response_mac(payload)
-    message = header+iv+payload+mac
-    return message
 
-
+'''
+================================== MAIN CODE ===================================
+'''
+'''
 logged_in = False
-print('Server loop started...')
+netif = network_interface(NET_PATH, OWN_ADDR)
 CURRENT_DIR = NET_PATH
+print('Server loop started...')
+
 while True:
 # Calling receive_msg() in non-blocking mode ...
 #	status, msg = netif.receive_msg(blocking=False)
@@ -138,7 +224,7 @@ while True:
     if not logged_in:
         status, msg = netif.receive_msg(blocking=True)     # when returns, status is True and msg contains a message
         if status:
-            username, password, timestamp, symkey, iv = parse_login_message(msg)
+            username, password, timestamp, sessionkey, iv = parse_login_message(msg)
             with open('donotopen.json', 'rb') as f:
                 username_label_length = len(b'Username Hash')
                 password_label_length = len(b'Password Hash')
@@ -209,7 +295,7 @@ while True:
                 else:
                     response_code = b"200"
                     print('That path is invalid or that folder could not be found.')
-                    
+
                 encrypted_message = generate_response_message(iv, response_code)
                 netif.send_msg(CLIENT_ADDR, encrypted_message)
 
@@ -225,7 +311,7 @@ while True:
                         list_of_items += item + '\n'
                     list_bytes = bytes(list_of_items, 'utf-8')
                     print('Successfully sent list of items from %s to client' % CURRENT_DIR)
-                
+
                 encrypted_message = generate_response_message(iv, response_code+list_bytes)
                 netif.send_msg(CLIENT_ADDR, encrypted_message)
 
@@ -270,3 +356,9 @@ while True:
 
                 encrypted_message = generate_response_message(iv, response_code)
                 netif.send_msg(CLIENT_ADDR, encrypted_message)
+'''
+
+sessionkey = generate_sessionkey()
+payload = generate_payload("200")
+message = generate_message(TYPE_LOGIN, sessionkey, payload)
+print(message)
