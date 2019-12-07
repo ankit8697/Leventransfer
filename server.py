@@ -1,5 +1,5 @@
 import sys, getopt, getpass, os, time, shutil, json
-# import client
+import client
 from Crypto.PublicKey import RSA
 from Crypto.Cipher import AES
 from Crypto.Util import Counter
@@ -8,7 +8,7 @@ from Crypto.Cipher import PKCS1_OAEP
 from Crypto.Signature import pss
 from Crypto import Random
 from datetime import datetime
-from base64 import b64encode
+from base64 import b64encode, b64decode
 from netsim.netinterface import network_interface
 
 
@@ -157,19 +157,64 @@ def generate_payload(response):
 
 
 ### process message functions
-# parse client message
-def parse_message(msg):
+# process client message
+def process_message(msg_type, msg, sessionkey = None):
     try:
         msg_dict = json.loads(msg)
-        json_k = [ 'nonce', 'header', 'ciphertext', 'tag' ]
+        msg_length = 0
+
+        # parse fields in the message
+        if msg_type == TYPE_LOGIN:
+            enc_sessionkey = b64decode(msg_dict['enc_sessionkey'].encode('utf-8'))
+            sessionkey = decrypt_sessionkey(enc_sessionkey)
+            print(sessionkey)
+            msg_length += len(enc_sessionkey)
+            # failure to decrypt session key returns in NULL response code
+            if (not sessionkey): return None
+
+        header_dict = msg_dict['header']
+        digit_1 = int(header_dict['version'])
+        digit_2 = int(header_dict['version'] * 10) % 10
+        header_version = digit_1.to_bytes(1, byteorder='big') + \
+                         digit_2.to_bytes(1, byteorder='big')
+        header_type = header_dict['type'].to_bytes(1, byteorder='big')
+        header_length = header_dict['length'].to_bytes(2, byteorder='big')
+        header_timestamp = header_dict['timestamp'].encode('utf-8')
+        header_random = b64decode(header_dict['random'].encode('utf-8'))
+        header_nonce = header_timestamp + header_random
+        header = header_version + header_type + header_length + header_nonce
+        enc_payload = b64decode(msg_dict['enc_payload'].encode('utf-8'))
+        authtag = b64decode(msg_dict['authtag'].encode('utf-8'))
+        msg_length += len(header) + len(enc_payload) + len(authtag)
+
+        # verify header length
+        if msg_length != header_dict['length']:
+            return BAD_MSG_LENGTH
+
+        # verify timestamp
+        if not valid_timestamp(header_dict['timestamp']):
+            return BAD_TIMESTAMP
+
+        # authenticate and decrypt payload
+        AE = AES.new(sessionkey, AES.MODE_GCM, nonce=header_nonce)
+        if msg_type == TYPE_LOGIN:
+            AE.update(header + enc_sessionkey)
+        elif msg_type == TYPE_COMMAND:
+            AE.update(header)
+
+        payload = AE.decrypt_and_verify(enc_payload, authtag)
+        print(payload)
+
+        '''
         jv = {k:b64decode(b64[k]) for k in json_k}
 
         cipher = AES.new(key, AES.MODE_EAX, nonce=jv['nonce'])
         cipher.update(jv['header'])
         plaintext = cipher.decrypt_and_verify(jv['ciphertext'], jv['tag'])
         print("The message was: " + plaintext)
+        '''
     except (ValueError, KeyError):
-        print("Incorrect decryption")
+        return BAD_AUTH_AND_DEC
 
 
 # get session key
@@ -179,7 +224,16 @@ def decrypt_sessionkey(enc_sessionkey):
         RSAcipher = PKCS1_OAEP.new(keypair)
         return RSAcipher.decrypt(enc_sessionkey)
     except (ValueError, TypeError):
-        return generate_sessionkey # if failure, generate random sessionkey
+        print("Failed to decrypt session key.")
+        return None # if failure, return NULL
+
+
+# verify timestamp_length
+def valid_timestamp(timestamp):
+    current_timestamp = int(generate_timestamp().decode('utf-8'))
+    delta_t = current_timestamp - int(timestamp)
+    tolerance = TIMESTAMP_WINDOW * 1e3 # in milliseconds
+    return (delta_t >= 0) and (delta_t < tolerance)
 
 
 def parse_login_message(msg):
@@ -365,6 +419,8 @@ while True:
                 encrypted_message = generate_response_message(iv, response_code)
                 netif.send_msg(CLIENT_ADDR, encrypted_message)
 '''
-# sessionkey = client.generate_sessionkey()
-# payload = client.generate_login_payload("bob", "abc")
-# message = client.generate_message(TYPE_LOGIN, sessionkey, payload)
+sessionkey = client.generate_sessionkey()
+payload = client.generate_login_payload("bob", "abc")
+message = client.generate_message(TYPE_LOGIN, sessionkey, payload)
+print(message)
+print(process_message(TYPE_LOGIN, message))
