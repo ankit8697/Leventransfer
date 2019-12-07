@@ -1,4 +1,5 @@
 import sys, getopt, getpass, os, time, shutil, json
+# import client
 from Crypto.PublicKey import RSA
 from Crypto.Cipher import AES
 from Crypto.Util import Counter
@@ -28,6 +29,7 @@ BAD_TIMESTAMP = '502'    # invalid timestamp (expired or in the future)
 BAD_AUTH_AND_DEC = '503' # failure to verify authtag and decrypt
 BAD_CREDENTIALS = '504'  # invalid credentials (username, hash of password)
 BAD_SIGNATURE = '505'    # invalid signature
+
 TIMESTAMP_WINDOW = 5     # window for timestamp verification
 
 # network variables
@@ -43,6 +45,7 @@ sessionkey = ''
 '''
 ================================== FUNCTIONS ===================================
 '''
+### load key functions
 
 def load_keypair():
     privkeyfile = 'test_keypair.pem'
@@ -69,26 +72,7 @@ def load_publickey(pubkeyfile):
         sys.exit(1)
 
 
-def parse_login_message(msg):
-    keypair = load_keypair()
-    RSAcipher = PKCS1_OAEP.new(keypair)
-    type_of_message = msg[:1]
-    version = msg[1:2]
-    length = msg[2:4]
-    payload = msg[4:]
-    decrypted_message = RSAcipher.decrypt(payload)
-    if length == len(decrypted_message):
-        username_length = decrypted_message[:2]
-        password_length = decrypted_message[2:4]
-        timestamp_length = 20
-        username = decrypted_message[4:username_length]
-        password = decrypted_message[4+username_length:4+username_length+password_length]
-        timestamp = decrypted_message[4+username_length+password_length:4+username_length+password_length+timestamp_length]
-        symkey = decrypted_message[4+username_length+password_length+timestamp_length:4+username_length+password_length+timestamp_length+AES.block_size]
-        iv = decrypted_message[-AES.block_size:]
-        return username, password, timestamp, symkey, iv
-
-
+### generate message functions
 # create server message
 def generate_message(msg_type, sessionkey, payload):
     # get timestamp and random bytes
@@ -140,6 +124,7 @@ def generate_header(msg_type, msg_length, timestamp, random):
     return version + type + length + timestamp + random
 
 
+# convert header to readable format
 def generate_header_dict(header):
     version = ord(header[:1]) + ord(header[1:2]) / 10
     type = int.from_bytes(header[2:3], byteorder="big")
@@ -171,6 +156,52 @@ def generate_payload(response):
     return (response).encode("utf-8")
 
 
+### process message functions
+# parse client message
+def parse_message(msg):
+    try:
+        msg_dict = json.loads(msg)
+        json_k = [ 'nonce', 'header', 'ciphertext', 'tag' ]
+        jv = {k:b64decode(b64[k]) for k in json_k}
+
+        cipher = AES.new(key, AES.MODE_EAX, nonce=jv['nonce'])
+        cipher.update(jv['header'])
+        plaintext = cipher.decrypt_and_verify(jv['ciphertext'], jv['tag'])
+        print("The message was: " + plaintext)
+    except (ValueError, KeyError):
+        print("Incorrect decryption")
+
+
+# get session key
+def decrypt_sessionkey(enc_sessionkey):
+    try:
+        keypair = load_keypair()
+        RSAcipher = PKCS1_OAEP.new(keypair)
+        return RSAcipher.decrypt(enc_sessionkey)
+    except (ValueError, TypeError):
+        return generate_sessionkey # if failure, generate random sessionkey
+
+
+def parse_login_message(msg):
+    keypair = load_keypair()
+    RSAcipher = PKCS1_OAEP.new(keypair)
+    type_of_message = msg[:1]
+    version = msg[1:2]
+    length = msg[2:4]
+    payload = msg[4:]
+    decrypted_message = RSAcipher.decrypt(payload)
+    if length == len(decrypted_message):
+        username_length = decrypted_message[:2]
+        password_length = decrypted_message[2:4]
+        timestamp_length = 20
+        username = decrypted_message[4:username_length]
+        password = decrypted_message[4+username_length:4+username_length+password_length]
+        timestamp = decrypted_message[4+username_length+password_length:4+username_length+password_length+timestamp_length]
+        symkey = decrypted_message[4+username_length+password_length+timestamp_length:4+username_length+password_length+timestamp_length+AES.block_size]
+        iv = decrypted_message[-AES.block_size:]
+        return username, password, timestamp, symkey, iv
+
+
 def parse_command(msg):
     header = msg[:5]
     type_of_message = header[:1]
@@ -180,29 +211,6 @@ def parse_command(msg):
     payload = msg[5+AES.block_size: 5+AES.block_size + length]
     mac = msg[-AES.block_size:]
     return type_of_message, version, length, iv, payload, mac
-
-
-def verify_mac(mac, payload):
-    h = HMAC.new(symkey, digestmod=SHA256)
-    h.update(payload)
-    try:
-        h.verify(mac)
-    except (ValueError) as e:
-        return False
-    return True
-
-
-def decrypt_client_payload(msg, iv):
-    cipher = AES.new(symkey, AES.MODE_CBC, iv=iv)
-    plaintext = cipher.decrypt(msg)
-    return plaintext
-
-
-def generate_response_mac(payload):
-    h = HMAC.new(symkey, digestmod=SHA256)
-    h.update(payload)
-    mac = h.digest()
-    return mac
 
 
 '''
@@ -357,8 +365,6 @@ while True:
                 encrypted_message = generate_response_message(iv, response_code)
                 netif.send_msg(CLIENT_ADDR, encrypted_message)
 '''
-
-sessionkey = generate_sessionkey()
-payload = generate_payload("200")
-message = generate_message(TYPE_LOGIN, sessionkey, payload)
-print(message)
+# sessionkey = client.generate_sessionkey()
+# payload = client.generate_login_payload("bob", "abc")
+# message = client.generate_message(TYPE_LOGIN, sessionkey, payload)

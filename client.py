@@ -109,13 +109,13 @@ def generate_message(msg_type, sessionkey, payload):
         # get encrypted session key
         pubkey = load_publickey(pubkeyfile)
         RSAcipher = PKCS1_OAEP.new(pubkey)
-        enc_sk = RSAcipher.encrypt(sessionkey)
+        enc_sessionkey = RSAcipher.encrypt(sessionkey)
 
-        AE.update(header + enc_sk)
+        AE.update(header + enc_sessionkey)
         enc_payload, authtag = AE.encrypt_and_digest(payload)
 
         msg_k = ['header', 'enc_sessionkey', 'enc_payload', 'authtag']
-        msg_v = [header_dict] + [b64encode(x).decode('utf-8') for x in [enc_sk, enc_payload, authtag]]
+        msg_v = [header_dict] + [b64encode(x).decode('utf-8') for x in [enc_sessionkey, enc_payload, authtag]]
 
     elif msg_type == TYPE_COMMAND:
         msg_len = LENGTH_HEADER + len(payload) + LENGTH_AUTHTAG
@@ -141,6 +141,7 @@ def generate_header(msg_type, msg_length, timestamp, random):
     return version + type + length + timestamp + random
 
 
+# convert header to readable format
 def generate_header_dict(header):
     version = ord(header[:1]) + ord(header[1:2]) / 10
     type = int.from_bytes(header[2:3], byteorder="big")
@@ -300,5 +301,5 @@ while True:
 
 sessionkey = generate_sessionkey()
 payload = generate_login_payload("bob", "abc")
-message = generate_message(TYPE_COMMAND, sessionkey, payload)
+message = generate_message(TYPE_LOGIN, sessionkey, payload)
 print(message)
