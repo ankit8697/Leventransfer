@@ -32,7 +32,7 @@ BAD_SIGNATURE = '505'    # invalid signature
 
 TIMESTAMP_WINDOW = 5     # window for timestamp verification
 
-# network variables
+# network constants/variables
 NET_PATH = './netsim/'
 OWN_ADDR = 'S'
 CLIENT_ADDR = ''
@@ -40,7 +40,7 @@ CURRENT_DIR = ''
 NUMBER_OF_USERS = 4
 LOGGED_IN = False
 
-# crypto variables
+# crypto constants/variables
 SESSION_KEY = ''
 
 
@@ -74,12 +74,15 @@ def load_publickey(pubkeyfile):
         sys.exit(1)
 
 
-### send message functions
+### send and receive message functions
 # send server response
-def send_response(sessionkey, response):
-    login_response = generate_message(TYPE_LOGIN, sessionkey, response)
+def send_response(msg_type, sessionkey, response):
+    login_response = generate_message(msg_type, sessionkey, response)
     netif.send(login_response)
 
+# receive client message
+def receive_client_message():
+    netif.receive_msg(blocking=True)
 
 ### generate message functions
 # create server message
@@ -100,10 +103,10 @@ def generate_message(msg_type, sessionkey, payload):
         AE.update(header)
         enc_payload, authtag = AE.encrypt_and_digest(payload)
 
+        # sign message
         keypair = load_keypair()
         signer = pss.new(keypair)
-        hashfn = SHA256.new()
-        hashfn.update(enc_payload)
+        hashfn = SHA256.new(header + enc_payload + authtag)
         signature = signer.sign(hashfn)
 
         msg_k = ['header', 'enc_payload', 'authtag', 'signature']
@@ -197,10 +200,12 @@ def process_message(msg_type, msg, sessionkey=None):
 
         # verify header length
         if msg_length != header_dict['length']:
+            print("Client message error: invalid header length.")
             return sessionkey, BAD_MSG_LENGTH, None
 
         # verify timestamp
         if not valid_timestamp(header_dict['timestamp']):
+            print("Client message error: invalid timestamp.")
             return sessionkey, BAD_TIMESTAMP, None
 
         # authenticate and decrypt payload
@@ -214,6 +219,7 @@ def process_message(msg_type, msg, sessionkey=None):
         return sessionkey, SUCCESS, payload
 
     except (ValueError, KeyError):
+        print("Client message error: the client message may be compromised.")
         return sessionkey, BAD_AUTH_AND_DEC, None
 
 
@@ -225,7 +231,7 @@ def decrypt_sessionkey(enc_sessionkey):
         return RSAcipher.decrypt(enc_sessionkey)
 
     except (ValueError, TypeError):
-        print("Failed to decrypt session key.")
+        print("Login message error: cannot decrypt session key.")
         return None # if failure, return NULL
 
 
@@ -244,28 +250,30 @@ def verify_credentials(credentials):
         username = credentials[1:length_username + 1]
         password = credentials[length_username + 1:]
 
-        hashfn = SHA256.new()
-        hashfn.update(username)
+        hashfn = SHA256.new(username)
         hash_username = b64encode(hashfn.digest()).decode('utf-8')
-        hashfn = SHA256.new()
-        hashfn.update(password)
+        hashfn = SHA256.new(password)
         hash_password = b64encode(hashfn.digest()).decode('utf-8')
 
         with open('users.json', 'rb') as f:
             credentials_dict = json.load(f)
-            status = (credentials_dict[hash_username] == hash_password)
+            # get list of fields for user
+            fields = credentials_dict[hash_username]
 
-            if status:
-                return hash_username
+            if fields[0] == hash_password:
+                return fields[1]
 
     except Exception:
+        print("Login message error: cannot verify user credentials.")
         return None
 
 '''
 ================================== MAIN CODE ===================================
 '''
 # '''
+print('Network starting')
 netif = network_interface(NET_PATH, OWN_ADDR)
+print('Network interface connected...')
 CURRENT_DIR = NET_PATH
 print('Server connected...')
 
@@ -276,127 +284,128 @@ while True:
 #	else: time.sleep(2)        # otherwise msg is empty
 
 # Calling receive_msg() in blocking mode ...
-    if not LOGGED_IN:
-        status, msg = netif.receive_msg(blocking=True)     # receive client login message
-        if status:
+    status, msg = netif.receive_msg(blocking=True) # receive client login message
+
+    if status:
+        if not LOGGED_IN:
             SESSION_KEY, response_code, payload = process_message(TYPE_LOGIN, msg)
 
             if response_code == SUCCESS:
                 # verify credentials
-                hash_username = verify_credentials(payload)
-                if hash_username:
+                dirname = verify_credentials(payload)
+                if dirname:
                     LOGGED_IN = True
-                    CLIENT_ADDR = hash_username
+                    CLIENT_ADDR = dirname
                     CURRENT_DIR += CLIENT_ADDR + '/IN/'
                 else:
                     response_code = BAD_CREDENTIALS
 
-            send_login_response(SESSION_KEY, response_code)
-    else:
-        status, msg = netif.receive_msg(blocking=True)
-        SESSION_KEY, response_code, payload = process_message(TYPE_COMMAND, msg, SESSION_KEY)
+            send_response(TYPE_LOGIN, SESSION_KEY, response_code)
+        else:
+            SESSION_KEY, response_code, payload = process_message(TYPE_COMMAND, msg, SESSION_KEY)
 
-        if response_code == SUCCESS:
-            command_arguments = payload.split()
-            command = command_arguments[0]
+            if response_code == SUCCESS:
+                command_arguments = payload.decode(utf-8).split()
+                command = command_arguments[0]
+                response = ''
 
-            if command == 'MKD':
-                name_of_folder = f"${CURRENT_DIR}${command_arguments[2]}"
-                try:
-                    os.mkdir(name_of_folder)
-                except OSError:
-                    response_code = BAD_COMMAND
-                    print("Creation of the directory %s failed" % name_of_folder)
-                else:
-                    print("Successfully created the directory %s " % name_of_folder)
+                if command == 'MKD':
+                    name_of_folder = f"${CURRENT_DIR}${command_arguments[2]}"
+                    try:
+                        os.mkdir(name_of_folder)
+                    except OSError:
+                        response = BAD_COMMAND
+                        print("Creation of the directory %s failed" % name_of_folder)
+                    else:
+                        response = SUCCESS
+                        print("Successfully created the directory %s " % name_of_folder)
 
-            elif command == 'RMD':
-                name_of_folder = f"${CURRENT_DIR}${command_arguments[2]}"
-                try:
-                    os.rmdir(name_of_folder)
-                except OSError:
-                    response_code = BAD_COMMAND
-                    print("Deletion of the directory %s failed" % name_of_folder)
-                else:
-                    print("Successfully deleted the directory %s " % name_of_folder)
+                elif command == 'RMD':
+                    name_of_folder = f"${CURRENT_DIR}${command_arguments[2]}"
+                    try:
+                        os.rmdir(name_of_folder)
+                    except OSError:
+                        response = BAD_COMMAND
+                        print("Deletion of the directory %s failed" % name_of_folder)
+                    else:
+                        response = SUCCESS
+                        print("Successfully deleted the directory %s " % name_of_folder)
 
-            elif command == 'GWD':
-                try:
-                    current_folder = os.path.basename(CURRENT_DIR)
-                except OSError:
-                    print("The current folder is %s" % current_folder)
-                else:
-                    response_code = BAD_COMMAND
-                    print('There was an error in getting the name of the current folder.')
+                    encrypted_message = generate_response_message(iv, response_code)
+                    netif.send_msg(CLIENT_ADDR, encrypted_message)
 
-            elif command == 'CWD':
-                path_of_folder = command_arguments[2]
-                try:
-                    os.chdir(path_of_folder)
-                except OSError:
-                    print("The current folder is now %s" % current_folder)
-                else:
-                    response_code = BAD_COMMAND
-                    print('That path is invalid or that folder could not be found.')
+                elif command == 'GWD':
+                    try:
+                        current_folder = os.path.basename(CURRENT_DIR)
+                    except OSError:
+                        response = BAD_COMMAND
+                        print('There was an error in getting the name of the current folder.')
+                    else:
+                        response = SUCCESS + current_folder
+                        print("The current folder is %s" % current_folder)
 
-            elif command == 'LST':
-                try:
-                    items = os.listdir(CURRENT_DIR)
-                except OSError:
-                    response_code = BAD_COMMAND
-                    print("Getting list of items from %s failed" % CURRENT_DIR)
-                else:
-                    response_code = b'200'
-                    list_of_items = ''
-                    for item in items:
-                        list_of_items += item + '\n'
-                    list_bytes = bytes(list_of_items, 'utf-8')
-                    print('Successfully sent list of items from %s to client' % CURRENT_DIR)
+                elif command == 'CWD':
+                    path_of_folder = command_arguments[2]
+                    try:
+                        os.chdir(path_of_folder)
+                    except OSError:
+                        response = BAD_COMMAND
+                        print('That path is invalid or that folder could not be found.')
+                    else:
+                        response_code = SUCCESS
+                        print("The current folder is now %s" % current_folder)
 
-                encrypted_message = generate_response_message(iv, response_code+list_bytes)
-                netif.send_msg(CLIENT_ADDR, encrypted_message)
+                elif command == 'LST':
+                    try:
+                        items = os.listdir(CURRENT_DIR)
+                    except OSError:
+                        response = BAD_COMMAND
+                        print("Getting list of items from %s failed" % CURRENT_DIR)
+                    else:
+                        response = SUCCESS
+                        list_of_items = ''
+                        for item in items:
+                            list_of_items += item + '\n'
+                        list_bytes = bytes(list_of_items, 'utf-8')
+                        response += list_bytes
+                        print('Successfully sent list of items from %s to client' % CURRENT_DIR)
 
+                elif command == 'UPL':
+                    path_of_file = command_arguments[2]
+                    try:
+                        shutil.copyfile(path_of_file, CURRENT_DIR)
+                    except OSError:
+                        response = BAD_COMMAND
+                        print("Uploading of the file from %s failed" % path_of_file)
+                    else:
+                        response = SUCCESS
+                        print("Successfully uploaded the file from %s " % path_of_file)
 
-            elif command == 'UPL':
-                path_of_file = command_arguments[2]
-                try:
-                    shutil.copyfile(path_of_file, CURRENT_DIR)
-                except OSError:
-                    print("Uploading of the file from %s failed" % path_of_file)
-                else:
-                    response_code = b"200"
-                    print("Successfully uploaded the file from %s " % path_of_file)
+                elif command == 'DNL':
+                    name_of_file = command_arguments[2]
+                    destination_path = command_arguments[4]
+                    try:
+                        shutil.copyfile(CURRENT_DIR+name_of_file, destination_path)
+                    except OSError:
+                        response = BAD_COMMAND
+                        print("Downloading of the file %s failed" % name_of_file)
+                    else:
+                        response = SUCCESS
+                        print("Successfully downloaded the file %s " % name_of_file)
 
-                encrypted_message = generate_response_message(iv, response_code)
-                netif.send_msg(CLIENT_ADDR, encrypted_message)
+                elif command == 'RMF':
+                    name_of_file = command_arguments[2]
+                    path_to_file = CURRENT_DIR+name_of_file
+                    try:
+                        os.remove(path_to_file)
+                    except OSError:
+                        response = BAD_COMMAND
+                        print("Removal of the file %s failed" % name_of_file)
+                    else:
+                        response = SUCCESS
+                        print("Successfully removed the file %s " % name_of_folder)
 
-            elif command == 'DNL':
-                name_of_file = command_arguments[2]
-                destination_path = command_arguments[4]
-                try:
-                    shutil.copyfile(CURRENT_DIR+name_of_file, destination_path)
-                except OSError:
-                    print("Downloading of the file %s failed" % name_of_file)
-                else:
-                    response_code = b"200"
-                    print("Successfully downloaded the file %s " % name_of_file)
-
-                encrypted_message = generate_response_message(iv, response_code)
-                netif.send_msg(CLIENT_ADDR, encrypted_message)
-
-            elif command == 'RMF':
-                name_of_file = command_arguments[2]
-                path_to_file = CURRENT_DIR+name_of_file
-                try:
-                    os.remove(path_to_file)
-                except OSError:
-                    print("Removal of the file %s failed" % name_of_file)
-                else:
-                    response_code = b"200"
-                    print("Successfully removed the file %s " % name_of_folder)
-
-                encrypted_message = generate_response_message(iv, response_code)
-                netif.send_msg(CLIENT_ADDR, encrypted_message)
+                send_response(TYPE_COMMAND, SESSION_KEY, response)
 
 
 ''' # TESTING

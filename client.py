@@ -28,25 +28,24 @@ BAD_AUTH_AND_DEC = '503' # failure to verify authtag and decrypt
 BAD_CREDENTIALS = '504'  # invalid credentials (username, hash of password)
 BAD_SIGNATURE = '505'    # invalid signature
 
-
-# network variables
+# network constants/variables
 NET_PATH = './netsim/'
 OWN_ADDR = ''
 SERVER_ADDR = 'S'
+LOGGED_IN = False
 
-# crypto variables
+# crypto constants/variables
 sessionkey = ''
 username = ''
 password = ''
-pubkeyfile = 'test_pubkey.pem'
-privkeyfile = 'test_keypair.pem'
 
 
 '''
 ================================== FUNCTIONS ===================================
 '''
 ### load key functions
-def load_publickey(pubkeyfile):
+def load_publickey():
+    pubkeyfile = 'test_pubkey.pem'
     with open(pubkeyfile, 'rb') as f:
         pubkeystr = f.read()
     try:
@@ -55,22 +54,27 @@ def load_publickey(pubkeyfile):
         print('Error: Cannot import public key from file ' + pubkeyfile)
         sys.exit(1)
 
-### generate message functions
+
+### send and receive message functions
 # send login message
-def send_login_message(username, password):
-    sessionkey = generate_sessionkey()
+def send_login_message(username, password, sessionkey):
     payload = generate_login_payload(username, password)
     message = generate_message(TYPE_LOGIN, sessionkey, payload)
-    netif.send_msg(SERVER_ADDR, message)
+    netif.send_msg(SERVER_ADDR, message.encode('utf-8'))
 
 
 # send command message
 def send_command_message(command, sessionkey):
     payload = generate_command_payload(command)
     message = generate_message(TYPE_COMMAND, sessionkey, payload)
-    netif.send_msg(SERVER_ADDR, message)
+    netif.send_msg(SERVER_ADDR, message.encode('utf-8'))
+
+# receive server message
+def receive_server_message():
+    netif.receive_msg(blocking=True)
 
 
+### generate message functions
 # create client message
 def generate_message(msg_type, sessionkey, payload):
     # get timestamp and random bytes
@@ -87,7 +91,7 @@ def generate_message(msg_type, sessionkey, payload):
         header_dict = generate_header_dict(header)
 
         # get encrypted session key
-        pubkey = load_publickey(pubkeyfile)
+        pubkey = load_publickey()
         RSAcipher = PKCS1_OAEP.new(pubkey)
         enc_sessionkey = RSAcipher.encrypt(sessionkey)
 
@@ -159,36 +163,88 @@ def generate_command_payload(command):
     return command.encode("utf-8")
 
 
-def parse_command_reply(msg):
-    type_of_message = msg[:1]
-    version = msg[1:2]
-    length = msg[2:4]
-    iv = msg[4:4+AES.block_size]
-    payload = msg[4+AES.block_size:4+AES.block_size+length]
-    mac = msg[4+AES.block_size+length:]
-    return iv, payload, mac
-
-
-def verify_mac(mac):
-    h = HMAC.new(session_key, digestmod=SHA256)
-    h.update(payload)
+### process message functions
+# process server message to get response code, payload
+def process_message(msg_type, msg, sessionkey):
     try:
-        mac = h.verify()
-    except (ValueError) as e:
+        msg_dict = json.loads(msg)
+        msg_length = 0
+
+        # parse fields in the message
+        header_dict = msg_dict['header']
+        digit_1 = int(header_dict['version'])
+        digit_2 = int(header_dict['version'] * 10) % 10
+        header_version = digit_1.to_bytes(1, byteorder='big') + \
+                         digit_2.to_bytes(1, byteorder='big')
+        header_type = header_dict['type'].to_bytes(1, byteorder='big')
+        header_length = header_dict['length'].to_bytes(2, byteorder='big')
+        header_timestamp = header_dict['timestamp'].encode('utf-8')
+        header_random = b64decode(header_dict['random'].encode('utf-8'))
+        header_nonce = header_timestamp + header_random
+        header = header_version + header_type + header_length + header_nonce
+        enc_payload = b64decode(msg_dict['enc_payload'].encode('utf-8'))
+        authtag = b64decode(msg_dict['authtag'].encode('utf-8'))
+        msg_length += len(header) + len(enc_payload) + len(authtag)
+
+        # verify signature for login response
+        if msg_type == TYPE_LOGIN:
+            signature = b64decode(msg_dict['signature'].encode('utf-8'))
+            signed_msg = header + enc_payload + authtag
+            if not valid_signature(signature, signed_msg):
+                return BAD_SIGNATURE, None
+
+        # verify header length
+        if msg_length != header_dict['length']:
+            print("Server response error: invalid header length.")
+            return BAD_MSG_LENGTH, None
+
+        # verify timestamp
+        if not valid_timestamp(header_dict['timestamp']):
+            print("Server response error: invalid timestamp.")
+            return BAD_TIMESTAMP, None
+
+        # authenticate and decrypt payload
+        AE = AES.new(sessionkey, AES.MODE_GCM, nonce=header_nonce)
+        if msg_type == TYPE_LOGIN:
+            AE.update(header + enc_sessionkey)
+        elif msg_type == TYPE_COMMAND:
+            AE.update(header)
+
+        payload = AE.decrypt_and_verify(enc_payload, authtag)
+        return SUCCESS, payload
+
+    except (ValueError, KeyError):
+        print("Server response error: the response may be compromised.")
+        return BAD_AUTH_AND_DEC, None
+
+
+# verify signature
+def valid_signature(signature, signed_msg):
+    pubkey = load_publickey()
+    h = SHA256.new(signed_msg)
+
+    try:
+        verifier = pss.new(pubkey)
+        verifier.verify(h, signature)
+    except (ValueError, TypeError):
+        print("Server response error: unable to authenticate server.")
         return False
-    return True
+    else:
+        return True
 
 
-def decrypt_server_payload(msg, iv):
-    cipher = AES.new(session_key, AES.MODE_CBC, iv=iv)
-    plaintext = cipher.decrypt(msg)
-    return plaintext
+# verify timestamp_length
+def valid_timestamp(timestamp):
+    current_timestamp = int(generate_timestamp().decode('utf-8'))
+    delta_t = current_timestamp - int(timestamp)
+    tolerance = TIMESTAMP_WINDOW * 1e3 # in milliseconds
+    return (delta_t >= 0) and (delta_t < tolerance)
 
 
 '''
 ================================== MAIN CODE ===================================
 '''
-'''
+# '''
 # parse command line arguments
 try:
     opts, args = getopt.getopt(sys.argv[1:], 'hu:p:', ['help', 'username=', 'password='])
@@ -210,121 +266,109 @@ for opt, arg in opts:
 # run client logic
 OWN_ADDR = username
 netif = network_interface(NET_PATH, OWN_ADDR)
-logged_in = False
 while True:
-    if not logged_in:
-        send_login_msg(username, password)
-        status, msg = netif.receive_msg(blocking=True)
-        if status:
-            cipher = AES.new(session_key, AES.MODE_CBC, iv=iv)
-            pubkey = load_publickey('test_pubkey.pem')
-            verifier = pss.new(pubkey)
-            h = SHA256.new()
-            h.update(msg[:-7])
-            try:
-                verifier.verify(h, msg[-7:])
-            except (ValueError, TypeError) as e:
-                print('That username and password does not exist. Please try again.')
-                break
-            print('Login Successful. Please enter your commands.')
-            logged_in = True
+    if not LOGGED_IN:
+        SESSION_KEY = generate_sessionkey()
+        send_login_message(username, password, SESSION_KEY)
+        status, msg = receive_server_message()
 
+        if status:
+            server_code, payload = process_message(TYPE_LOGIN, msg, SESSION_KEY)
+            login_code = payload.decode('utf-8')
+
+            if not server_code == SUCCESS: # server message is invalid
+                print("Login unsuccessful.")
+                break
+
+            if login_code in [BAD_MSG_LENGTH, BAD_TIMESTAMP, BAD_AUTH_AND_DEC]:
+                print("Login unsuccessful: login message may be compromised")
+                break
+            elif login_code == BAD_CREDENTIALS:
+                print("Login unsuccessful: username or password is incorrect")
+                break
+            elif login_code == SUCCESS:
+                LOGGED_IN = True
+                print('Login successful. Please enter your command:')
     else:
         # We are now ready to send commands
         command = input('Enter your command: ')
-        if command[:3] == 'MKD':
-            foldername = command[7:]
-            netif.send_msg('S', generate_command_message(command))
-            status, msg = netif.receive_msg(blocking=True)
-            iv, payload, mac = parse_command_reply(msg)
+        if input('Continue? (y/n): ') == 'n': break
 
-            plaintext = decrypt_server_payload(msg, iv)
-            if plaintext == b'200':
-                print(f'the folder ${foldername} has been created.')
-            else:
-                print('There was an error in creating the folder.')
+        send_command_message(command, SESSION_KEY)
+        status, msg = receive_server_message()
 
-        elif command[:3] == 'RMD':
-            foldername = command[7:]
-            netif.send_msg('S', generate_command_message(command))
-            status, msg = netif.receive_msg(blocking=True)
-            iv, payload, mac = parse_command_reply(msg)
-            plaintext = decrypt_server_payload(msg, iv)
-            if plaintext == b'200':
-                print(f'the folder ${foldername} has been removed.')
-            else:
-                print('There was an error in removing the folder.')
+        if status:
+            server_code, payload = process_message(TYPE_COMMAND, msg, SESSION_KEY)
 
-        elif command[:3] == 'GWD':
-            netif.send_msg('S', generate_command_message(command))
-            status, msg = netif.receive_msg(blocking=True)
-            iv, payload, mac = parse_command_reply(msg)
-            plaintext = decrypt_server_payload(msg, iv)
-            if plaintext == b'200':
-                print(f'the current folder is ${foldername}.')
-            else:
-                print('There was an error in identifying the current folder.')
+            if server_code == SUCCESS:
+                response = payload.decode('utf-8')
+                command_code = response[:3]
+                data = response[3:]
 
-        elif command[:3] == 'CWD':
-            filepath = command[7:]
-            netif.send_msg('S', generate_command_message(command))
-            status, msg = netif.receive_msg(blocking=True)
-            iv, payload, mac = parse_command_reply(msg)
-            plaintext = decrypt_server_payload(msg, iv)
-            if plaintext == b'200':
-                print(f'the current folder is now changed to ${foldername}.')
-            else:
-                print('There was an error in changing the folder.')
+                if command[:3] == 'MKD':
+                    foldername = command[7:]
+                    if command_code == SUCCESS:
+                        print(f'the folder ${foldername} has been created.')
+                    else:
+                        print('There was an error in creating the folder.')
 
-        elif command[:3] == 'LST':
-            netif.send_msg('S', generate_command_message(command))
-            status, msg = netif.receive_msg(blocking=True)
-            iv, payload, mac = parse_command_reply(msg)
-            plaintext = decrypt_server_payload(msg, iv)
-            if plaintext == b'200':
-                print(f'the folder ${foldername} has been created.')
-            else:
-                print('There was an error in creating the folder.')
+                elif command[:3] == 'RMD':
+                    foldername = command[7:]
+                    if command_code == SUCCESS:
+                        print(f'the folder ${foldername} has been removed.')
+                    else:
+                        print('There was an error in removing the folder.')
 
-        elif command[:3] == 'UPL':
-            filename = command[7:]
-            netif.send_msg('S', generate_command_message(command))
-            status, msg = netif.receive_msg(blocking=True)
-            iv, payload, mac = parse_command_reply(msg)
-            plaintext = decrypt_server_payload(msg, iv)
-            if plaintext == b'200':
-                print(f'the file ${filename} has been uploaded.')
-            else:
-                print('There was an error in uploading the folder.')
+                elif command[:3] == 'GWD':
+                    foldername = data
+                    if command_code == SUCCESS:
+                        print(f'the current folder is ${foldername}.')
+                    else:
+                        print('There was an error in identifying the current folder.')
 
-        elif command[:3] == 'DNL':
-            values = command.split(' ')
-            filename = values[2]
-            destination_path = values[4]
-            netif.send_msg('S', generate_command_message(command))
-            status, msg = netif.receive_msg(blocking=True)
-            iv, payload, mac = parse_command_reply(msg)
-            plaintext = decrypt_server_payload(msg, iv)
-            if plaintext == b'200':
-                print(f'the file ${filename} has been downloaded.')
-            else:
-                print('There was an error in downloading the folder.')
+                elif command[:3] == 'CWD':
+                    foldername = command[7:]
+                    if command_code == SUCCESS:
+                        print(f'the current folder is now changed to ${foldername}.')
+                    else:
+                        print('There was an error in changing the folder.')
 
-        elif command[:3] == 'RMF':
-            filename = command[7:]
-            netif.send_msg('S', generate_command_message(command))
-            status, msg = netif.receive_msg(blocking=True)
-            iv, payload, mac = parse_command_reply(msg)
-            plaintext = decrypt_server_payload(msg, iv)
-            if plaintext == b'200':
-                print(f'the file ${filename} has been removed.')
-            else:
-                print('There was an error in removing the file.')
+                elif command[:3] == 'LST':
+                    list = data
+                    if command_code == SUCCESS:
+                        print('Current folder:')
+                        for file in data.split('\n'):
+                            print(f'${file}\n')
+                    else:
+                        print('There was an error in creating the folder.')
 
-    if input('Continue? (y/n): ') == 'n': break
+                elif command[:3] == 'UPL':
+                    filename = command[7:]
+                    if command_code == SUCCESS:
+                        print(f'the file ${filename} has been uploaded.')
+                    else:
+                        print('There was an error in uploading the folder.')
+
+                elif command[:3] == 'DNL':
+                    values = command.split(' ')
+                    filename = values[2]
+                    destination_path = values[4]
+                    if command_code == SUCCESS:
+                        print(f'the file ${filename} has been downloaded.')
+                    else:
+                        print('There was an error in downloading the folder.')
+
+                elif command[:3] == 'RMF':
+                    filename = command[7:]
+                    if command_code == SUCCESS:
+                        print(f'the file ${filename} has been removed.')
+                    else:
+                        print('There was an error in removing the file.')
+
+
 '''
-
 # sessionkey = generate_sessionkey()
 # payload = generate_login_payload("bob", "abc")
 # message = generate_message(TYPE_LOGIN, sessionkey, payload)
 # print(message)
+# '''
