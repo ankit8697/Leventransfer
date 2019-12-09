@@ -322,26 +322,7 @@ while LOGGED_IN:
                 data = response[3:]
 
             # output result of executing command
-            if command_code == BAD_COMMAND:
-                print('Usage: ')
-                print('  > Make directory')
-                print('        MKD -n <foldername>')
-                print('  > Remove directory')
-                print('        RMD -n <foldername>')
-                print('  > Get directory:')
-                print('        GWD')
-                print('  > Change directory')
-                print('        CWD -p <folderpath>')
-                print('  > List directory')
-                print('        LST')
-                print('  > Upload')
-                print('        UPL -f <filepath>')
-                print('  > Download')
-                print('        DNL -f <filename> -d <targetpath>')
-                print('  > Remove file')
-                print('        RMF -f <filename>')
-
-            elif command[:3] == 'MKD':
+            if command[:3] == 'MKD':
                 foldername = command[7:]
                 if command_code == SUCCESS:
                     print(f'The folder \"{foldername}\" has been created.')
@@ -400,6 +381,26 @@ while LOGGED_IN:
                     print(f'The file \"{filename}\" has been removed.')
                 else:
                     print(f'There file \"{filename}\" could not be removed.')
+
+            else:
+                print('Usage: ')
+                print('  > Make directory')
+                print('        MKD -n <foldername>')
+                print('  > Remove directory')
+                print('        RMD -n <foldername>')
+                print('  > Get directory:')
+                print('        GWD')
+                print('  > Change directory')
+                print('        CWD -p <folderpath>')
+                print('  > List directory')
+                print('        LST')
+                print('  > Upload')
+                print('        UPL -f <filepath>')
+                print('  > Download')
+                print('        DNL -f <filename> -d <targetpath>')
+                print('  > Remove file')
+                print('        RMF -f <filename>')
+
         else:
             print('The server response could not be read.')
 

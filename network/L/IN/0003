@@ -1,0 +1,12 @@
+{
+  "header": {
+    "version": 1.0,
+    "type": 0,
+    "length": 296,
+    "timestamp": "1575911678743",
+    "random": "lWC8"
+  },
+  "enc_payload": "UK+N",
+  "authtag": "VqYvusButokeCvE102ukBQ==",
+  "signature": "g1l0kPSO1TkuYS7oT5VJdhg+gQm+yXS37vkgnhj0hpYycIVtrpKGOGe3mRVGizkAseF5TL6qIKyVeE8Rg4kqDxwDGltaVztbjcl9zLbkTyzbl6FCxYf0hEaB/lG/1KPJ8S5s1slSozygkcG6Y/zLoIrE/eq3BJXU1grqmaTVH3MpM6hwHoL1DYToOGEgB+khgTnEjKu51EnPf5MkJuJrDn9iq5AR3S+j3AqY40iRPb90VxpgR9PKv/IhWxlSjlXTpdMnWfebIHyv++NWZaSPjc+DIwM2bwMwp4F1ZA7AKBFpfMNsfTESBtg2qNVP6I59HWbJ7L2ABz0zdmcafkkuMQ=="
+}

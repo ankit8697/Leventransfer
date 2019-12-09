@@ -1,0 +1,11 @@
+{
+  "header": {
+    "version": 1.0,
+    "type": 1,
+    "length": 40,
+    "timestamp": "1575911870584",
+    "random": "+63t"
+  },
+  "enc_payload": "2Ffz",
+  "authtag": "snCmqKtUkdzRbIp0QV0byQ=="
+}

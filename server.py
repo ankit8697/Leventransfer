@@ -183,7 +183,7 @@ def process_message(msg_type, msg, sessionkey=None):
             sessionkey = decrypt_sessionkey(enc_sessionkey)
             msg_length += len(enc_sessionkey)
             # failure to decrypt session key returns in NULL response code
-            if (not sessionkey): 
+            if (not sessionkey):
                 sessionkey = generate_sessionkey()
                 return sessionkey, BAD_AUTH_AND_DEC, None
 
@@ -271,7 +271,7 @@ def verify_credentials(credentials):
     except Exception as e:
         print(e)
         print("Login message error: cannot verify user credentials.")
-        return None
+        return None, None
 
 '''
 ================================== MAIN CODE ===================================
@@ -331,7 +331,7 @@ while True:
                     if command_arguments[1] != '-n':
                         print('An incorrect flag was used. Please use the correct flag.')
                     else:
-                        foldername = f"{CURRENT_DIR}/{command_arguments[2]}"                    
+                        foldername = f"{CURRENT_DIR}/{command_arguments[2]}"
                         try:
                             os.rmdir(foldername)
                         except OSError:
@@ -383,7 +383,7 @@ while True:
                     if command_arguments[1] != '-f':
                         print('An incorrect flag was used. Please use the correct flag.')
                     else:
-                        filepath = command_arguments[2]    
+                        filepath = command_arguments[2]
                         try:
                             shutil.copyfile(filepath, CURRENT_DIR)
                         except OSError:
