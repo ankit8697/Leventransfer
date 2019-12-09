@@ -370,9 +370,9 @@ while LOGGED_IN:
                 filename = values[2]
                 dstpath = values[4]
                 if command_code == SUCCESS:
-                    print(f'The file \"{filename}\" from \"{dstpath}\" has been downloaded.')
+                    print(f'The file \"{filename}\" has been downloaded to \"{dstpath}\".')
                 else:
-                    print(f'The file \"{filename}\" from \"{dstpath}\" could not be downloaded.')
+                    print(f'The file \"{filename}\" could not be downloaded to from \"{dstpath}\".')
 
             elif command[:3] == 'RMF':
                 filename = command[7:]

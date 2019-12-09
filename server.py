@@ -80,7 +80,6 @@ def load_publickey(pubkeyfile):
 # send server response
 def send_response(dst, msg_type, sessionkey, response):
     response = generate_message(msg_type, sessionkey, response)
-    print(dst)
     netif.send_msg(dst, response.encode('utf-8'))
     print("Sent response")
 
@@ -280,23 +279,17 @@ def verify_credentials(credentials):
 
 
 #checks path validity
-def fix_path(directory, username):
+def fix_path(directory, username, type = 'SERVER'):
     real_path = os.path.realpath(directory)
     path = real_path.replace(os.getcwd(), '.')
-    print(path)
-    expected_prefix = './server/' + username
+    if type == 'SERVER':
+        expected_prefix = './server/' + username
+    else:
+        expected_prefix = './client/' + username
+
     if path[0:len(expected_prefix)] != expected_prefix:
             return None
     return path
-
-    #sub_dir = real_path.split('/')
-    #print(sub_dir)
-    #fixed_path = f''
-    #for i in range(sub_dir.index(username), len(sub_dir)-1):
-        #fixed_path += sub_dir[i] + '/'
-    #fixed_path += sub_dir[len(sub_dir)-1]
-    #return fixed_path
-
 
 
 '''
@@ -344,30 +337,24 @@ while True:
                     command = command_arguments[0]
 
                 if command == 'MKD':
-                    if len(command_arguments) != 3 or command_arguments[1] != '-n':
-                        print('An incorrect flag was used for the \'MKD\' command.')
+                    foldername = f"{CURRENT_DIR}/{command_arguments[2]}"
+                    try:
+                        os.mkdir(fix_path(foldername, USERNAME))
+                    except (OSError, TypeError):
+                        print(f'The folder \"{foldername}\" could not be created.')
                     else:
-                        foldername = f"{CURRENT_DIR}/{command_arguments[2]}"
-                        try:
-                            os.mkdir(fix_path(foldername, USERNAME))
-                        except (OSError, TypeError):
-                            print(f'The folder \"{foldername}\" could not be created.')
-                        else:
-                            response = SUCCESS
-                            print(f'The folder \"{foldername}\" has been created.')
+                        response = SUCCESS
+                        print(f'The folder \"{foldername}\" has been created.')
 
                 elif command == 'RMD':
-                    if len(command_arguments) != 3 or command_arguments[1] != '-n':
-                        print('An incorrect flag was used for the \'RMD\' command.')
+                    foldername = f"{CURRENT_DIR}/{command_arguments[2]}"
+                    try:
+                        os.rmdir(fix_path(foldername, USERNAME))
+                    except (OSError, TypeError):
+                        print(f'The folder \"{foldername}\" could not be removed.')
                     else:
-                        foldername = f"{CURRENT_DIR}/{command_arguments[2]}"
-                        try:
-                            os.rmdir(fix_path(foldername, USERNAME))
-                        except (OSError, TypeError):
-                            print(f'The folder \"{foldername}\" could not be removed.')
-                        else:
-                            response = SUCCESS
-                            print(f'The folder \"{foldername}\" has been removed.')
+                        response = SUCCESS
+                        print(f'The folder \"{foldername}\" has been removed.')
 
                 elif command == 'GWD':
                     try:
@@ -379,23 +366,20 @@ while True:
                         print(f'The current folder is \"{foldername}\".')
 
                 elif command == 'CWD':
-                    if len(command_arguments) != 3 or command_arguments[1] != '-p':
-                        print('An incorrect flag was used for the \'CWD\' command.')
-                    else:
-                        foldername = command_arguments[2]
-                        temp_dir = fix_path(f'{CURRENT_DIR}/{foldername}', USERNAME)
-                        print(temp_dir)
-                        try:
-                            if os.path.exists(temp_dir):
-                                CURRENT_DIR = temp_dir
-                                real_path = os.path.realpath(CURRENT_DIR)
+                    foldername = command_arguments[2]
+                    temp_dir = fix_path(f'{CURRENT_DIR}/{foldername}', USERNAME)
+                    print(temp_dir)
+                    try:
+                        if os.path.exists(temp_dir):
+                            CURRENT_DIR = temp_dir
+                            real_path = os.path.realpath(CURRENT_DIR)
 
-                                response = SUCCESS
-                                print(f'The current directory is now \"{CURRENT_DIR}\".')
-                            else:
-                                print(f'The current folder could not be changed via the given path.')
-                        except (OSError, TypeError):
+                            response = SUCCESS
+                            print(f'The current directory is now \"{CURRENT_DIR}\".')
+                        else:
                             print(f'The current folder could not be changed via the given path.')
+                    except (OSError, TypeError):
+                        print(f'The current folder could not be changed via the given path.')
 
                 elif command == 'LST':
                     try:
@@ -415,53 +399,43 @@ while True:
                         print(f'Successfully sent the list of items in {CURRENT_SERVER_DIR} to client')
 
                 elif command == 'UPL':
-                    if len(command_arguments) != 3 or command_arguments[1] != '-f':
-                        print('An incorrect flag was used for the \'UPL\' command.')
+                    filepath = command_arguments[2]
+                    filepath = CURRENT_CLIENT_DIR + USERNAME + '/' + filepath
+                    print(filepath)
+                    try:
+                        shutil.copy(fix_path(filepath, USERNAME, 'CLIENT'), CURRENT_SERVER_DIR)
+                    except (OSError, TypeError) as e:
+                        print(e)
+                        print(f'The file from \"{filepath}\" could not be uploaded')
                     else:
-                        filepath = command_arguments[2]
-                        filepath = CURRENT_CLIENT_DIR + USERNAME + '/' + filepath
-                        print(filepath)
-                        try:
-                            shutil.copy2(filepath, CURRENT_SERVER_DIR)
-                        except OSError as e:
-                            print(e)
-                            print(f'The file from \"{filepath}\" could not be uploaded')
-                        else:
-                            response = SUCCESS
-                            print(f'The file from \"{filepath}\" has been uploaded.')
+                        response = SUCCESS
+                        print(f'The file from \"{filepath}\" has been uploaded.')
 
                 elif command == 'DNL':
-                    if len(command_arguments) != 5 or command_arguments[1] != '-f' or command_arguments[3] != '-d':
-                        print('An incorrect flag was used for the \'DNL\' command.')
+                    filename = command_arguments[2]
+                    dstpath = command_arguments[4]
+                    dstpath = CURRENT_CLIENT_DIR + USERNAME + '/' + dstpath
+                    source = CURRENT_SERVER_DIR + '/' + filename
+                    try:
+                        shutil.copy(fix_path(source, USERNAME), fix_path(dstpath, USERNAME, 'CLIENT'))
+                    except (OSError, TypeError) as e:
+                        print(e)
+                        print(f'The file \"{filename}\" from could not be downloaded to \"{dstpath}\".')
                     else:
-                        filename = command_arguments[2]
-                        dstpath = command_arguments[4]
-                        dstpath = CURRENT_CLIENT_DIR + USERNAME + '/' + dstpath
-                        source = CURRENT_SERVER_DIR + '/' + filename
-                        try:
-                            shutil.copy(source, dstpath)
-                        except (OSError, TypeError) as e:
-                            print(e)
-                            print(f'The file \"{filename}\" from \"{dstpath}\" could not be downloaded.')
-                        else:
-                            response = SUCCESS
-                            print(f'The file \"{filename}\" from \"{dstpath}\" has been downloaded.')
-
+                        response = SUCCESS
+                        print(f'The file \"{filename}\" has been downloaded to \"{dstpath}\".')
 
                 elif command == 'RMF':
-                    if len(command_arguments) != 3 or command_arguments[1] != '-f':
-                        print('An incorrect flag was used for the \'RMF\' command.')
+                    filename = command_arguments[2]
+                    filepath = CURRENT_DIR + USERNAME + "/"+ filename
+                    try:
+                        os.remove(fix_path(filepath, USERNAME))
+                    except (OSError, TypeError) as e:
+                        print(e)
+                        print(f'The file \"{filepath}\" could not be removed.')
                     else:
-                        filename = command_arguments[2]
-                        filepath = CURRENT_DIR + USERNAME + "/"+ filename
-                        try:
-                            os.remove(filepath)
-                        except (OSError, TypeError) as e:
-                            print(e)
-                            print(f'The file \"{filepath}\" could not be removed.')
-                        else:
-                            response = SUCCESS
-                            print(f'The file \"{filepath}\" has been removed.')
+                        response = SUCCESS
+                        print(f'The file \"{filepath}\" has been removed.')
 
                 send_response(CLIENT_ADDR, TYPE_COMMAND, SESSION_KEY, response.encode('utf-8'))
 
