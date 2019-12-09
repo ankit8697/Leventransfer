@@ -76,10 +76,9 @@ def load_publickey(pubkeyfile):
 ### send and receive message functions
 # send server response
 def send_response(dst, msg_type, sessionkey, response):
-    response = generate_message(msg_type, sessionkey, response)
-    print(dst)
-    netif.send_msg(dst, response.encode('utf-8'))
-    print("Sent response")
+    login_response = generate_message(msg_type, sessionkey, response)
+    netif.send_msg(dst, login_response.encode('utf-8'))
+    print("Sent login response")
 
 
 # receive client message
@@ -268,7 +267,6 @@ def verify_credentials(credentials):
                 with open('server/addr_mapping.json', 'r') as g:
                     addr_dict = json.load(g)
                     return username, addr_dict[username]
-        return None, None
 
     except Exception as e:
         print(e)
@@ -298,14 +296,12 @@ while True:
                 if user_addr:
                     LOGGED_IN = True
                     CURRENT_DIR += username
-                    print(CURRENT_DIR)
 
                 else:
                     response_code = BAD_CREDENTIALS
 
             send_response(CLIENT_ADDR, TYPE_LOGIN, SESSION_KEY, response_code.encode('utf-8'))
-            if user_addr:
-                CLIENT_ADDR = user_addr
+            CLIENT_ADDR = user_addr
 
         else:
             SESSION_KEY, response_code, payload = process_message(TYPE_COMMAND, msg, SESSION_KEY)
@@ -357,30 +353,31 @@ while True:
                     if command_arguments[1] != '-p':
                         print('An incorrect flag was used. Please use the correct flag.')
                     else:
-                        foldername = command_arguments[2]
+                        path_of_folder = command_arguments[2]
                         try:
-                            os.chdir(f'{CURRENT_DIR}/{foldername}')
+                            os.chdir(path_of_folder)
                         except OSError:
-                            print(f'The current folder \"{foldername}\" could not be changed via the given path.')
+                            print('The current folder could not be changed via the given path.')
                         else:
-                            CURRENT_DIR += f'/{foldername}'
+                            CURRENT_DIR = path_of_folder
                             response = SUCCESS
                             print(f'The current folder is now \"{foldername}\".')
 
                 elif command == 'LST':
                     try:
+                        print(CURRENT_DIR)
                         items = os.listdir(CURRENT_DIR)
                     except OSError:
                         print(f'Failed to retrieve the list of items.' )
                     else:
                         response = SUCCESS
                         items_list = ''
-                        print(CURRENT_DIR)
-                        print(list)
+                        print(items)
                         for item in items:
                             items_list += item + '\n'
-                        list_bytes = bytes(items_list, 'utf-8')
-                        response += list_bytes
+
+                        items_list = items_list[:-1]
+                        response += items_list
                         print(f'Successfully sent the list of items in {CURRENT_DIR} to client')
 
                 elif command == 'UPL':
@@ -425,7 +422,6 @@ while True:
                             response = SUCCESS
                             print(f'There file \"{filename}\" has been removed.')
 
-                print(CLIENT_ADDR)
                 send_response(CLIENT_ADDR, TYPE_COMMAND, SESSION_KEY, response.encode('utf-8'))
 
 

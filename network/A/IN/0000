@@ -2,10 +2,10 @@
   "header": {
     "version": 1.0,
     "type": 1,
-    "length": 40,
-    "timestamp": "1575915383192",
-    "random": "2p+6"
+    "length": 69,
+    "timestamp": "1575917620273",
+    "random": "nlJC"
   },
-  "enc_payload": "iCtg",
-  "authtag": "5gFeYtCIAiSxgNKRFX/uag=="
+  "enc_payload": "3QVBU48w11DcoBI8XkFnUeqHOVvp7t51MENSkkxmeJg=",
+  "authtag": "+bE+Jo+zHSUqqI6x1SzvTw=="
 }
