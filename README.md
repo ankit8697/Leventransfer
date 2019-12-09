@@ -1,5 +1,7 @@
 # LevenTransfer
-State-of-the-art file transfer crypto-system
+State-of-the-art file transfer crypto-system offering confidentiality, integrity protection and authentication, and replay protection. Created by Ankit Sanghi, Mark Rubakh, Winston Wang, 
+Aurnov Chattopadhyay, and Snow Kang Fall 2019 under Dr. Levente Buttyán.
+
 
 ## Key Variables
 
