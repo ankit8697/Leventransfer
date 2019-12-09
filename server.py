@@ -321,9 +321,9 @@ while True:
                 username, user_addr = verify_credentials(payload)
                 if user_addr:
                     LOGGED_IN = True
-                    CURRENT_DIR += username
+                    CURRENT_SERVER_DIR += username
                     USERNAME = username
-                    print(CURRENT_DIR)
+                    print(CURRENT_SERVER_DIR)
 
                 else:
                     response_code = BAD_CREDENTIALS
@@ -419,9 +419,10 @@ while True:
                         print('An incorrect flag was used for the \'UPL\' command.')
                     else:
                         filepath = command_arguments[2]
-                        filepath = CURRENT_CLIENT_DIR + USERNAME + filepath
+                        filepath = CURRENT_CLIENT_DIR + USERNAME + '/' + filepath
+                        print(filepath)
                         try:
-                            shutil.copyfile(filepath, CURRENT_SERVER_DIR)
+                            shutil.copy2(filepath, CURRENT_SERVER_DIR)
                         except OSError as e:
                             print(e)
                             print(f'The file from \"{filepath}\" could not be uploaded')
@@ -435,10 +436,12 @@ while True:
                     else:
                         filename = command_arguments[2]
                         dstpath = command_arguments[4]
-                        dstpath = CURRENT_CLIENT_DIR + USERNAME + dstpath
+                        dstpath = CURRENT_CLIENT_DIR + USERNAME + '/' + dstpath
+                        source = CURRENT_SERVER_DIR + '/' + filename
                         try:
-                            shutil.copyfile(CURRENT_SERVER_DIR + filename, dstpath)
-                        except OSError:
+                            shutil.copy2(source, dstpath)
+                        except OSError as e:
+                            print(e)
                             print(f'The file \"{filename}\" from \"{dstpath}\" could not be downloaded.')
                         else:
                             response = SUCCESS
@@ -450,14 +453,15 @@ while True:
                         print('An incorrect flag was used for the \'RMF\' command.')
                     else:
                         filename = command_arguments[2]
-                        filepath = CURRENT_DIR + filename
+                        filepath = CURRENT_DIR + USERNAME + "/"+ filename
                         try:
                             os.remove(filepath)
-                        except OSError:
-                            print(f'The file \"{filename}\" could not be removed.')
+                        except OSError as e:
+                            print(e)
+                            print(f'The file \"{filepath}\" could not be removed.')
                         else:
                             response = SUCCESS
-                            print(f'There file \"{filename}\" has been removed.')
+                            print(f'The file \"{filepath}\" has been removed.')
 
                 send_response(CLIENT_ADDR, TYPE_COMMAND, SESSION_KEY, response.encode('utf-8'))
 

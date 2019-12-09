@@ -353,7 +353,7 @@ while LOGGED_IN:
             elif command[:3] == 'LST':
                 if command_code == SUCCESS:
                     print('Current folder:')
-                    for filename in data.split(''):
+                    for filename in data.split('\n'):
                         print(f'\"{filename}\"')
                 else:
                     print('The items in the current directory could not be listed.')
