@@ -23,3 +23,14 @@ success_error_dict = {200: Success, 500: ‘Invalid Credentials’, 501: ‘Time
 * **UPL -f <path_of_file>**  *uploading a file to the server*  
 * **DNL -f <filename> -d <destination_path>**  *downloading a file from the server*  
 * **RMF -f <filename>**  *removing a file from a folder on the server*
+
+#### Recommended Commands:  
+```py
+python3 netsim/network.py -p ‘./network’ --clean
+```
+```py
+python3 server.py
+```
+```py
+python3 client.py -u levente12 -p Ey3L0v3m@@thH
+```
