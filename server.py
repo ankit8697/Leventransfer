@@ -35,7 +35,6 @@ TIMESTAMP_WINDOW = 5     # window for timestamp verification
 NET_PATH = './network/'
 OWN_ADDR = 'S'
 CLIENT_ADDR = 'L'
-CURRENT_DIR = './server/'
 NUMBER_OF_USERS = 4
 USERNAME = ''
 LOGGED_IN = False
@@ -278,7 +277,7 @@ def verify_credentials(credentials):
         return None, None
 
 
-#checks path validity
+# checks path validity
 def fix_path(directory, username, type = 'SERVER'):
     real_path = os.path.realpath(directory)
     path = real_path.replace(os.getcwd(), '.')
@@ -292,6 +291,13 @@ def fix_path(directory, username, type = 'SERVER'):
     return path
 
 
+
+def display_received_msg(msg):
+    print('Message received:')
+    print(msg.decode('utf-8'))
+    print()
+
+
 '''
 ================================== MAIN CODE ===================================
 '''
@@ -301,9 +307,8 @@ netif = network_interface(NET_PATH, OWN_ADDR)
 # set server folder as root directory
 print('Server connected...')
 while True:
-    print('entered loop')
     status, msg = receive_client_message() # receive client login message
-    print(msg)
+    display_received_msg(msg)
 
     if status:
         if not LOGGED_IN:
@@ -316,7 +321,7 @@ while True:
                     LOGGED_IN = True
                     CURRENT_SERVER_DIR += username
                     USERNAME = username
-                    print(CURRENT_SERVER_DIR)
+                    print(f'Current server directory: {CURRENT_SERVER_DIR}')
 
                 else:
                     response_code = BAD_CREDENTIALS
@@ -337,7 +342,7 @@ while True:
                     command = command_arguments[0]
 
                 if command == 'MKD':
-                    foldername = f"{CURRENT_DIR}/{command_arguments[2]}"
+                    foldername = f"{CURRENT_SERVER_DIR}/{command_arguments[2]}"
                     try:
                         os.mkdir(fix_path(foldername, USERNAME))
                     except (OSError, TypeError):
@@ -347,7 +352,7 @@ while True:
                         print(f'The folder \"{foldername}\" has been created.')
 
                 elif command == 'RMD':
-                    foldername = f"{CURRENT_DIR}/{command_arguments[2]}"
+                    foldername = f"{CURRENT_SERVER_DIR}/{command_arguments[2]}"
                     try:
                         os.rmdir(fix_path(foldername, USERNAME))
                     except (OSError, TypeError):
@@ -358,7 +363,7 @@ while True:
 
                 elif command == 'GWD':
                     try:
-                        foldername = os.path.basename(CURRENT_DIR)
+                        foldername = os.path.basename(CURRENT_SERVER_DIR)
                     except OSError:
                         print('The current folder could not be identified.')
                     else:
@@ -367,15 +372,15 @@ while True:
 
                 elif command == 'CWD':
                     foldername = command_arguments[2]
-                    temp_dir = fix_path(f'{CURRENT_DIR}/{foldername}', USERNAME)
+                    temp_dir = fix_path(f'{CURRENT_SERVER_DIR}/{foldername}', USERNAME)
                     print(temp_dir)
                     try:
                         if os.path.exists(temp_dir):
-                            CURRENT_DIR = temp_dir
-                            real_path = os.path.realpath(CURRENT_DIR)
+                            CURRENT_SERVER_DIR = temp_dir
+                            real_path = os.path.realpath(CURRENT_SERVER_DIR)
 
                             response = SUCCESS
-                            print(f'The current directory is now \"{CURRENT_DIR}\".')
+                            print(f'The current directory is now \"{CURRENT_SERVER_DIR}\".')
                         else:
                             print(f'The current folder could not be changed via the given path.')
                     except (OSError, TypeError):
@@ -383,7 +388,6 @@ while True:
 
                 elif command == 'LST':
                     try:
-                        print(CURRENT_SERVER_DIR)
                         items = os.listdir(CURRENT_SERVER_DIR)
                     except OSError:
                         print(f'Failed to retrieve the list of items.' )
@@ -401,7 +405,7 @@ while True:
                 elif command == 'UPL':
                     filepath = command_arguments[2]
                     filepath = CURRENT_CLIENT_DIR + USERNAME + '/' + filepath
-                    print(filepath)
+                    # print(filepath)
                     try:
                         shutil.copy(fix_path(filepath, USERNAME, 'CLIENT'), CURRENT_SERVER_DIR)
                     except (OSError, TypeError) as e:
@@ -427,7 +431,7 @@ while True:
 
                 elif command == 'RMF':
                     filename = command_arguments[2]
-                    filepath = CURRENT_DIR + USERNAME + "/"+ filename
+                    filepath = CURRENT_SERVER_DIR + USERNAME + "/"+ filename
                     try:
                         os.remove(fix_path(filepath, USERNAME))
                     except (OSError, TypeError) as e:
