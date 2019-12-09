@@ -1,0 +1,12 @@
+{
+  "header": {
+    "version": 1.0,
+    "type": 0,
+    "length": 312,
+    "timestamp": "1575911716044",
+    "random": "C2fK"
+  },
+  "enc_sessionkey": "UUIhdC75TWRSs2FpC5wVkwKJEHdIVPE/dMcFl99uUIGTte+wA2JuHvV0IPryZ1F3YcTIFNjEOyCX70CrPLhBpR3+PK4MQEVWgh9Uk7cbwj5w0RTDRloHt6ADbtu4qK+huxtdE0ybQhHjUI2atEgEk1x6o1DaBsnr7lgu3dzc2gNgBr1aLWsyNDDZGJLzLDrVln8/Dd8BT7goVFAWQtZZzv4sJFANrGOp6miToF9YnIgnfl4pqGKA4mHFq8avRrn/ouMt+Dzuu+jYFt7R54HdqUgtuvirzO+YfptXyqOxn1/LYwSB4cDzMAULt1MXLK5RBiEAXQ/CZPZ+fpdOpkHpJw==",
+  "enc_payload": "sLrHxGW8aADSja2HyUjSJMyovg==",
+  "authtag": "2PJVDpcX5dZvd/+odMcKYw=="
+}

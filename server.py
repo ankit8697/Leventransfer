@@ -338,7 +338,7 @@ while True:
                     except OSError:
                         print('The current folder could not be identified.')
                     else:
-                        response = SUCCESS + current_folder
+                        response = SUCCESS + foldername
                         print(f'The current folder is \"{foldername}\".')
 
                 elif command == 'CWD':
