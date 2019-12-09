@@ -25,12 +25,12 @@ success_error_dict = {200: Success, 500: ‘Invalid Credentials’, 501: ‘Time
 * **RMF -f <filename>**  *removing a file from a folder on the server*
 
 #### Recommended Commands:  
-```py
+```shell
 python3 netsim/network.py -p ‘./network’ --clean
 ```
-```py
+```shell
 python3 server.py
 ```
-```py
+```shell
 python3 client.py -u levente12 -p Ey3L0v3m@@thH
 ```
