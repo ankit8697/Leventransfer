@@ -8,6 +8,6 @@ cryptography
 
 Username-Password Pairs
 usernames = ['levente12', 'istvanist', 'gaborgabo']
-passwords = ['ilovemath', 'tesorit12', 'aitaitait']
+passwords = ['Ey3L0v3m@@thH','tEs$sor1t2','aitAITaitA1T']
 
 success_error_dict = {200: Success, 500: ‘Invalid Credentials’, 501: ‘Timestamp out of Range’, 502: ‘Unable to Authenticate’, 503: ‘Bad Mac’}
