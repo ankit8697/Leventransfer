@@ -332,9 +332,6 @@ while True:
                         response = SUCCESS
                         print(f'The folder \"{foldername}\" has been removed.')
 
-                    encrypted_message = generate_response_message(iv, response_code)
-                    netif.send_msg(CLIENT_ADDR, encrypted_message)
-
                 elif command == 'GWD':
                     try:
                         current_folder = os.path.basename(CURRENT_DIR)
