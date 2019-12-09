@@ -38,6 +38,7 @@ CLIENT_ADDR = 'L'
 CURRENT_SERVER_DIR = './server/'
 CURRENT_CLIENT_DIR = './client/'
 NUMBER_OF_USERS = 4
+USERNAME = ''
 LOGGED_IN = False
 
 # crypto constants/variables
@@ -247,6 +248,15 @@ def valid_timestamp(timestamp):
     tolerance = TIMESTAMP_WINDOW * 1e3 # in milliseconds
     return (delta_t >= 0) and (delta_t < tolerance)
 
+#checks path validity
+def fix_path(directory, username):
+    real_path = os.path.realpath(directory)
+    sub_dir = real_path.split('/')
+    fixed_path = f''
+    for i in range(sub_dir.index(username), len(sub_dir)-1):
+        fixed_path += sub_dir[i] + '/'
+    fixed_path += sub_dir[len(sub_dir)-1]
+    return fixed_path
 
 # verify credentials
 def verify_credentials(credentials):
@@ -277,7 +287,7 @@ def verify_credentials(credentials):
 '''
 ================================== MAIN CODE ===================================
 '''
-# '''
+
 netif = network_interface(NET_PATH, OWN_ADDR)
 
 # set server folder as root directory
@@ -297,7 +307,7 @@ while True:
                 if user_addr:
                     LOGGED_IN = True
                     CURRENT_SERVER_DIR += username
-
+                    CURRENT_DIR += username
                 else:
                     response_code = BAD_CREDENTIALS
 
@@ -354,15 +364,19 @@ while True:
                     if command_arguments[1] != '-p':
                         print('An incorrect flag was used. Please use the correct flag.')
                     else:
-                        path_of_folder = command_arguments[2]
+                        foldername = command_arguments[2]
+                        temp_dir = f'{CURRENT_DIR}/{foldername}'
                         try:
-                            os.chdir(path_of_folder)
+                            if os.path.exists(temp_dir):
+                                CURRENT_DIR = temp_dir
+                                real_path = os.path.realpath(CURRENT_DIR)
+
+                                response = SUCCESS
+                                print(f'The current folder is now \"{foldername}\".')
+                            else:
+                                print(f'The current folder \"{foldername}\" could not be changed via the given path.')
                         except OSError:
-                            print('The current folder could not be changed via the given path.')
-                        else:
-                            CURRENT_SERVER_DIR = path_of_folder
-                            response = SUCCESS
-                            print(f'The current folder is now \"{foldername}\".')
+                            print(f'The current folder \"{foldername}\" could not be changed via the given path.')
 
                 elif command == 'LST':
                     try:
@@ -430,11 +444,7 @@ while True:
 
 
 ''' # TESTING
-print(CURRENT_DIR)
-sessionkey = client.generate_sessionkey()
-payload = client.generate_login_payload("levente12", "ilovemath")
-message = client.generate_message(TYPE_LOGIN, sessionkey, payload)
-print(message)
-sessionkey, code, payload = process_message(TYPE_LOGIN, message)
-print(verify_credentials(payload))
+path = '/mnt/c/Users/winst/github/Leventransfer/server/levente12/hello'
+print(os.path.realpath(path))
+print(fix_path(path, 'levente12'))
 # '''
