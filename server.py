@@ -313,24 +313,24 @@ while True:
                     command = command_arguments[0]
 
                 if command == 'MKD':
-                    name_of_folder = f"{CURRENT_DIR}/{command_arguments[2]}"
+                    foldername = f"{CURRENT_DIR}/{command_arguments[2]}"
                     try:
-                        os.mkdir(name_of_folder)
+                        os.mkdir(foldername)
                     except OSError:
-                        print("Creation of the directory $%s failed" % name_of_folder)
+                        print(f'The folder \"{foldername}\" could not be created.')
                     else:
                         response = SUCCESS
-                        print("Successfully created the directory %s " % name_of_folder)
+                        print(f'The folder \"{foldername}\" has been created.')
 
                 elif command == 'RMD':
-                    name_of_folder = f"{CURRENT_DIR}{command_arguments[2]}"
+                    foldername = f"{CURRENT_DIR}{command_arguments[2]}"
                     try:
-                        os.rmdir(name_of_folder)
+                        os.rmdir(foldername)
                     except OSError:
-                        print("Deletion of the directory $%s failed" % name_of_folder)
+                        print(f'The folder \"{foldername}\" could not be removed.')
                     else:
                         response = SUCCESS
-                        print("Successfully deleted the directory $%s " % name_of_folder)
+                        print(f'The folder \"{foldername}\" has been removed.')
 
                     encrypted_message = generate_response_message(iv, response_code)
                     netif.send_msg(CLIENT_ADDR, encrypted_message)
@@ -339,27 +339,26 @@ while True:
                     try:
                         current_folder = os.path.basename(CURRENT_DIR)
                     except OSError:
-                        print('There was an error in getting the name of the current folder.')
+                        print('The current folder could not be identified.')
                     else:
                         response = SUCCESS + current_folder
-                        print("The current folder is %s" % current_folder)
+                        print(f'The current folder is \"{foldername}\".')
 
                 elif command == 'CWD':
                     path_of_folder = command_arguments[2]
                     try:
                         os.chdir(path_of_folder)
                     except OSError:
-                        print('That path is invalid or that folder could not be found.')
+                        print('The current folder could not be changed via the given path.')
                     else:
                         response_code = SUCCESS
-                        print("The current folder is now %s" % current_folder)
+                        print(f'The current folder is now \"{foldername}\".')
 
                 elif command == 'LST':
                     try:
                         items = os.listdir(CURRENT_DIR)
-                        print(items)
                     except OSError:
-                        print("Getting list of items from %s failed" % CURRENT_DIR)
+                        print(f'Failed to retrieve the list of items.' )
                     else:
                         response = SUCCESS
                         list_of_items = b''
@@ -367,39 +366,40 @@ while True:
                             list_of_items += item + b'\n'
                         list_bytes = bytes(list_of_items, 'utf-8')
                         response += list_bytes
-                        print('Successfully sent list of items from %s to client' % CURRENT_DIR)
+                        print(f'Successfully sent the list of items in {CURRENT_DIR} to client')
 
                 elif command == 'UPL':
-                    path_of_file = command_arguments[2]
+                    filepath = command_arguments[2]
                     try:
-                        shutil.copyfile(path_of_file, CURRENT_DIR)
+                        shutil.copyfile(filepath, CURRENT_DIR)
                     except OSError:
-                        print("Uploading of the file from %s failed" % path_of_file)
+                        print(f'The file from \"{filepath}\" could not be uploaded')
                     else:
                         response = SUCCESS
-                        print("Successfully uploaded the file from %s " % path_of_file)
+                        print(f'The file from \"{filepath}\" has been uploaded.')
 
                 elif command == 'DNL':
-                    name_of_file = command_arguments[2]
-                    destination_path = command_arguments[4]
+                    filename = command_arguments[2]
+                    dstpath = command_arguments[4]
                     try:
                         shutil.copyfile(CURRENT_DIR + name_of_file, destination_path)
                     except OSError:
-                        print("Downloading of the file %s failed" % name_of_file)
+                        print(f'The file \"{filename}\" from \"{dstpath}\" could not be downloaded.')
                     else:
                         response = SUCCESS
-                        print("Successfully downloaded the file %s " % name_of_file)
+                        print(f'The file \"{filename}\" from \"{dstpath}\" has been downloaded.')
+
 
                 elif command == 'RMF':
-                    name_of_file = command_arguments[2]
-                    path_to_file = CURRENT_DIR + name_of_file
+                    filename = command_arguments[2]
+                    filepath = CURRENT_DIR + name_of_file
                     try:
-                        os.remove(path_to_file)
+                        os.remove(filepath)
                     except OSError:
-                        print("Removal of the file %s failed" % name_of_file)
+                        print(f'The file \"{filename}\" could not be removed.')
                     else:
                         response = SUCCESS
-                        print("Successfully removed the file %s " % name_of_folder)
+                        print(f'There file \"{filename}\" has been removed.')
 
                 send_response(CLIENT_ADDR, TYPE_COMMAND, SESSION_KEY, response.encode('utf-8'))
 

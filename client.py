@@ -345,28 +345,28 @@ while LOGGED_IN:
                 if command_code == SUCCESS:
                     print(f'The folder \"{foldername}\" has been created.')
                 else:
-                    print('There was an error in creating the folder.')
+                    print(f'The folder \"{foldername}\" could not be created.')
 
             elif command[:3] == 'RMD':
                 foldername = command[7:]
                 if command_code == SUCCESS:
                     print(f'The folder \"{foldername}\" has been removed.')
                 else:
-                    print('There was an error in removing the folder.')
+                    print(f'The folder \"{foldername}\" could not be removed.')
 
             elif command[:3] == 'GWD':
                 foldername = data
                 if command_code == SUCCESS:
                     print(f'The current folder is \"{foldername}\".')
                 else:
-                    print('There was an error in identifying the current folder.')
+                    print('The current folder could not be identified.')
 
             elif command[:3] == 'CWD':
                 foldername = command[7:]
                 if command_code == SUCCESS:
-                    print(f'The current folder is changed to \"{foldername}\".')
+                    print(f'The current folder is now \"{foldername}\".')
                 else:
-                    print('There was an error in changing the folder.')
+                    print('The current folder could not be changed via the given path.')
 
             elif command[:3] == 'LST':
                 list = data
@@ -375,30 +375,30 @@ while LOGGED_IN:
                     for filename in data.split('\n'):
                         print(f'\"{filename}\"\n')
                 else:
-                    print('There was an error in creating the folder.')
+                    print('The items in the current directory could not be listed.')
 
             elif command[:3] == 'UPL':
-                filename = command[7:]
+                filepath = command[7:]
                 if command_code == SUCCESS:
-                    print(f'the file \"{filename}\" has been uploaded.')
+                    print(f'The file from \"{filepath}\" has been uploaded.')
                 else:
-                    print('There was an error in uploading the folder.')
+                    print(f'The file from \"{filepath}\" could not be uploaded')
 
             elif command[:3] == 'DNL':
                 values = command.split(' ')
                 filename = values[2]
-                destination_path = values[4]
+                dstpath = values[4]
                 if command_code == SUCCESS:
-                    print(f'the file \"{filename}\" has been downloaded.')
+                    print(f'The file \"{filename}\" from \"{dstpath}\" has been downloaded.')
                 else:
-                    print('There was an error in downloading the folder.')
+                    print(f'The file \"{filename}\" from \"{dstpath}\" could not be downloaded.')
 
             elif command[:3] == 'RMF':
                 filename = command[7:]
                 if command_code == SUCCESS:
-                    print(f'the file \"{filename}\" has been removed.')
+                    print(f'The file \"{filename}\" has been removed.')
                 else:
-                    print('There was an error in removing the file.')
+                    print(f'There file \"{filename}\" could not be removed.')
         else:
             print('The server response could not be read.')
 
