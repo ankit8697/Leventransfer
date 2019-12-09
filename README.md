@@ -1,5 +1,7 @@
 # LevenTransfer
-State-of-the-art file transfer crypto-system
+State-of-the-art file transfer crypto-system offering confidentiality, integrity protection and authentication, and replay protection. Created by Ankit Sanghi, Mark Rubakh, Winston Wang, 
+Aurnov Chattopadhyay, and Snow Kang Fall 2019 under Dr. Levente Buttyán.
+
 
 ## Key Variables
 
@@ -8,7 +10,7 @@ cryptography
 
 #### Username-Password Pairs:
 usernames = ['levente12', 'istvanist', 'gaborgabo']  
-passwords = ['Ey3L0v3m@@thH','tEs$sor1t2','aitAITaitA1T']
+passwords = ['Ey3L0v3m@@thH', 'tEs$sor1t2', 'aitAITaitA1T']
 
 #### Success and Error Dictionary:
 success_error_dict = {200: Success, 500: ‘Invalid Credentials’, 501: ‘Timestamp out of Range’, 502: ‘Unable to Authenticate’, 503: ‘Bad Mac’}
