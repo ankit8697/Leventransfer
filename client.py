@@ -26,7 +26,8 @@ BAD_MSG_LENGTH = '501'   # invalid message length in header
 BAD_TIMESTAMP = '502'    # invalid timestamp (expired or in the future)
 BAD_AUTH_AND_DEC = '503' # failure to verify authtag and decrypt
 BAD_CREDENTIALS = '504'  # invalid credentials (username, hash of password)
-BAD_SIGNATURE = '505'    # invalid signature
+BAD_SIGNATURE = '505'
+SERVER_BUSY = '506'    # invalid signature
 TIMESTAMP_WINDOW = 5     # window for timestamp verification
 RED = '\033[91m'
 GREEN = '\033[92m'
@@ -291,6 +292,8 @@ while True:
                 print('Login unsuccessful - login message cannot be read')
             elif login_code == BAD_CREDENTIALS:
                 print('Login unsuccessful - username or password is incorrect')
+            elif login_code == SERVER_BUSY:
+                print('Login unsuccessful - someone else is logged into the server')
             elif login_code == SUCCESS:
                 LOGGED_IN = True
                 with open('client/addr_mapping.json', 'r') as f:
@@ -403,8 +406,10 @@ while LOGGED_IN:
         else:
             print('The server response could not be read.')
 
-        if input(f'{color}[{username}]\033[0m Continue? (y/n): ') == 'n': break
-
+        if input(f'{color}[{username}]\033[0m Continue? (y/n): ') == 'n':
+            payload = 'EXT'
+            send_command_message(payload, SESSION_KEY)
+            break
 '''
 # sessionkey = generate_sessionkey()
 # payload = generate_login_payload("bob", "abc")
