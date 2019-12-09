@@ -28,8 +28,10 @@ BAD_AUTH_AND_DEC = '503' # failure to verify authtag and decrypt
 BAD_CREDENTIALS = '504'  # invalid credentials (username, hash of password)
 BAD_SIGNATURE = '505'    # invalid signature
 
+TIMESTAMP_WINDOW = 5     # window for timestamp verification
+
 # network constants/variables
-NET_PATH = './netsim/'
+NET_PATH = './network/'
 OWN_ADDR = ''
 SERVER_ADDR = 'S'
 LOGGED_IN = False
@@ -61,6 +63,7 @@ def send_login_message(username, password, sessionkey):
     payload = generate_login_payload(username, password)
     message = generate_message(TYPE_LOGIN, sessionkey, payload)
     netif.send_msg(SERVER_ADDR, message.encode('utf-8'))
+    print("Sent login message")
 
 
 # send command message
@@ -68,10 +71,12 @@ def send_command_message(command, sessionkey):
     payload = generate_command_payload(command)
     message = generate_message(TYPE_COMMAND, sessionkey, payload)
     netif.send_msg(SERVER_ADDR, message.encode('utf-8'))
+    print("Sent command message")
 
 # receive server message
 def receive_server_message():
-    netif.receive_msg(blocking=True)
+    print("Received server message")
+    return netif.receive_msg(blocking=True)
 
 
 ### generate message functions
@@ -167,7 +172,7 @@ def generate_command_payload(command):
 # process server message to get response code, payload
 def process_message(msg_type, msg, sessionkey):
     try:
-        msg_dict = json.loads(msg)
+        msg_dict = json.loads(msg.decode('utf-8'))
         msg_length = 0
 
         # parse fields in the message
@@ -190,11 +195,14 @@ def process_message(msg_type, msg, sessionkey):
         if msg_type == TYPE_LOGIN:
             signature = b64decode(msg_dict['signature'].encode('utf-8'))
             signed_msg = header + enc_payload + authtag
+            msg_length += len(signature)
             if not valid_signature(signature, signed_msg):
                 return BAD_SIGNATURE, None
 
         # verify header length
         if msg_length != header_dict['length']:
+            print(msg_length) #
+            print(header_dict['length']) #
             print("Server response error: invalid header length.")
             return BAD_MSG_LENGTH, None
 
@@ -205,10 +213,7 @@ def process_message(msg_type, msg, sessionkey):
 
         # authenticate and decrypt payload
         AE = AES.new(sessionkey, AES.MODE_GCM, nonce=header_nonce)
-        if msg_type == TYPE_LOGIN:
-            AE.update(header + enc_sessionkey)
-        elif msg_type == TYPE_COMMAND:
-            AE.update(header)
+        AE.update(header)
 
         payload = AE.decrypt_and_verify(enc_payload, authtag)
         return SUCCESS, payload
@@ -264,7 +269,9 @@ for opt, arg in opts:
         password = arg
 
 # run client logic
-OWN_ADDR = username
+
+OWN_ADDR = 'L'
+
 netif = network_interface(NET_PATH, OWN_ADDR)
 while True:
     if not LOGGED_IN:
@@ -272,27 +279,32 @@ while True:
         send_login_message(username, password, SESSION_KEY)
         status, msg = receive_server_message()
 
+        print(msg)
         if status:
             server_code, payload = process_message(TYPE_LOGIN, msg, SESSION_KEY)
-            login_code = payload.decode('utf-8')
 
             if not server_code == SUCCESS: # server message is invalid
                 print("Login unsuccessful.")
                 break
+            else:
+                login_code = payload.decode('utf-8')
 
-            if login_code in [BAD_MSG_LENGTH, BAD_TIMESTAMP, BAD_AUTH_AND_DEC]:
-                print("Login unsuccessful: login message may be compromised")
-                break
-            elif login_code == BAD_CREDENTIALS:
-                print("Login unsuccessful: username or password is incorrect")
-                break
-            elif login_code == SUCCESS:
-                LOGGED_IN = True
-                print('Login successful. Please enter your command:')
+                if login_code in [BAD_MSG_LENGTH, BAD_TIMESTAMP, BAD_AUTH_AND_DEC]:
+                    print("Login unsuccessful: login message may be compromised")
+                    break
+                elif login_code == BAD_CREDENTIALS:
+                    print("Login unsuccessful: username or password is incorrect")
+                    break
+                elif login_code == SUCCESS:
+                    LOGGED_IN = True
+                    with open('addr_mapping.json', 'r') as f:
+                        addr_dict = json.load(f)
+                        OWN_ADDR = addr_dict[username]
+                    print('Login successful :)')
+
     else:
         # We are now ready to send commands
         command = input('Enter your command: ')
-        if input('Continue? (y/n): ') == 'n': break
 
         send_command_message(command, SESSION_KEY)
         status, msg = receive_server_message()
@@ -364,7 +376,7 @@ while True:
                         print(f'the file ${filename} has been removed.')
                     else:
                         print('There was an error in removing the file.')
-
+        if input('Continue? (y/n): ') == 'n': break
 
 '''
 # sessionkey = generate_sessionkey()

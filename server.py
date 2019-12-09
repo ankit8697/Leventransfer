@@ -1,5 +1,4 @@
 import sys, getopt, getpass, os, time, shutil, json
-import client
 from Crypto.PublicKey import RSA
 from Crypto.Cipher import AES
 from Crypto.Util import Counter
@@ -33,9 +32,9 @@ BAD_SIGNATURE = '505'    # invalid signature
 TIMESTAMP_WINDOW = 5     # window for timestamp verification
 
 # network constants/variables
-NET_PATH = './netsim/'
+NET_PATH = './network/'
 OWN_ADDR = 'S'
-CLIENT_ADDR = ''
+CLIENT_ADDR = 'L'
 CURRENT_DIR = ''
 NUMBER_OF_USERS = 4
 LOGGED_IN = False
@@ -76,13 +75,17 @@ def load_publickey(pubkeyfile):
 
 ### send and receive message functions
 # send server response
-def send_response(msg_type, sessionkey, response):
+def send_response(dst, msg_type, sessionkey, response):
     login_response = generate_message(msg_type, sessionkey, response)
-    netif.send(login_response)
+    netif.send_msg(dst, login_response.encode('utf-8'))
+    print("Sent login response")
+
 
 # receive client message
 def receive_client_message():
-    netif.receive_msg(blocking=True)
+    print("Received client message")
+    return netif.receive_msg(blocking=True)
+
 
 ### generate message functions
 # create server message
@@ -172,7 +175,7 @@ def generate_payload(response):
 # process client message to get session key, response code, payload
 def process_message(msg_type, msg, sessionkey=None):
     try:
-        msg_dict = json.loads(msg)
+        msg_dict = json.loads(msg.decode('utf-8'))
         msg_length = 0
 
         # parse fields in the message
@@ -191,11 +194,11 @@ def process_message(msg_type, msg, sessionkey=None):
         header_type = header_dict['type'].to_bytes(1, byteorder='big')
         header_length = header_dict['length'].to_bytes(2, byteorder='big')
         header_timestamp = header_dict['timestamp'].encode('utf-8')
-        header_random = b64decode(header_dict['random'].encode('utf-8'))
+        header_random = b64decode(header_dict['random'])
         header_nonce = header_timestamp + header_random
         header = header_version + header_type + header_length + header_nonce
-        enc_payload = b64decode(msg_dict['enc_payload'].encode('utf-8'))
-        authtag = b64decode(msg_dict['authtag'].encode('utf-8'))
+        enc_payload = b64decode(msg_dict['enc_payload'])
+        authtag = b64decode(msg_dict['authtag'])
         msg_length += len(header) + len(enc_payload) + len(authtag)
 
         # verify header length
@@ -250,20 +253,25 @@ def verify_credentials(credentials):
         username = credentials[1:length_username + 1]
         password = credentials[length_username + 1:]
 
-        hashfn = SHA256.new(username)
-        hash_username = b64encode(hashfn.digest()).decode('utf-8')
-        hashfn = SHA256.new(password)
-        hash_password = b64encode(hashfn.digest()).decode('utf-8')
+        # password = b'ilovemath'
 
-        with open('users.json', 'rb') as f:
+        hashfn = SHA256.new()
+        hashfn.update(password)
+        hash_password = hashfn.digest()
+        hash_password = b64encode(hash_password).decode('utf-8')
+
+        with open('users.json', 'r') as f:
             credentials_dict = json.load(f)
-            # get list of fields for user
-            fields = credentials_dict[hash_username]
 
-            if fields[0] == hash_password:
-                return fields[1]
+            if credentials_dict[username.decode('utf-8')] == hash_password:
+                with open('addr_mapping.json', 'r') as g:
+                    addr_dict = json.load(g)
+                    print("Username:" + username.decode('utf-8'))
+                    return addr_dict[username.decode('utf-8')]
 
-    except Exception:
+    except Exception as e:
+        print(e)
+        print(e)
         print("Login message error: cannot verify user credentials.")
         return None
 
@@ -271,12 +279,10 @@ def verify_credentials(credentials):
 ================================== MAIN CODE ===================================
 '''
 # '''
-print('Network starting')
 netif = network_interface(NET_PATH, OWN_ADDR)
-print('Network interface connected...')
 CURRENT_DIR = NET_PATH
 print('Server connected...')
-
+print('update')
 while True:
 # Calling receive_msg() in non-blocking mode ...
 #	status, msg = netif.receive_msg(blocking=False)
@@ -284,7 +290,8 @@ while True:
 #	else: time.sleep(2)        # otherwise msg is empty
 
 # Calling receive_msg() in blocking mode ...
-    status, msg = netif.receive_msg(blocking=True) # receive client login message
+    print('entered loop')
+    status,msg = receive_client_message() # receive client login message
 
     if status:
         if not LOGGED_IN:
@@ -295,41 +302,42 @@ while True:
                 dirname = verify_credentials(payload)
                 if dirname:
                     LOGGED_IN = True
-                    CLIENT_ADDR = dirname
                     CURRENT_DIR += CLIENT_ADDR + '/IN/'
                 else:
                     response_code = BAD_CREDENTIALS
 
-            send_response(TYPE_LOGIN, SESSION_KEY, response_code)
+            send_response(CLIENT_ADDR, TYPE_LOGIN, SESSION_KEY, response_code.encode('utf-8'))
+            CLIENT_ADDR = dirname
+
         else:
             SESSION_KEY, response_code, payload = process_message(TYPE_COMMAND, msg, SESSION_KEY)
 
             if response_code == SUCCESS:
-                command_arguments = payload.decode(utf-8).split()
+                command_arguments = payload.decode('utf-8').split()
                 command = command_arguments[0]
                 response = ''
 
                 if command == 'MKD':
-                    name_of_folder = f"${CURRENT_DIR}${command_arguments[2]}"
+                    name_of_folder = f"{CURRENT_DIR}{command_arguments[2]}"
                     try:
                         os.mkdir(name_of_folder)
                     except OSError:
                         response = BAD_COMMAND
-                        print("Creation of the directory %s failed" % name_of_folder)
+                        print("Creation of the directory $%s failed" % name_of_folder)
                     else:
                         response = SUCCESS
                         print("Successfully created the directory %s " % name_of_folder)
 
                 elif command == 'RMD':
-                    name_of_folder = f"${CURRENT_DIR}${command_arguments[2]}"
+                    name_of_folder = f"{CURRENT_DIR}{command_arguments[2]}"
                     try:
                         os.rmdir(name_of_folder)
                     except OSError:
                         response = BAD_COMMAND
-                        print("Deletion of the directory %s failed" % name_of_folder)
+                        print("Deletion of the directory $%s failed" % name_of_folder)
                     else:
                         response = SUCCESS
-                        print("Successfully deleted the directory %s " % name_of_folder)
+                        print("Successfully deleted the directory $%s " % name_of_folder)
 
                     encrypted_message = generate_response_message(iv, response_code)
                     netif.send_msg(CLIENT_ADDR, encrypted_message)
@@ -405,7 +413,7 @@ while True:
                         response = SUCCESS
                         print("Successfully removed the file %s " % name_of_folder)
 
-                send_response(TYPE_COMMAND, SESSION_KEY, response)
+                send_response(CLIENT_ADDR, TYPE_COMMAND, SESSION_KEY, response.encode('utf-8'))
 
 
 ''' # TESTING

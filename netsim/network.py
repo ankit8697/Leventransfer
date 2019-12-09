@@ -4,26 +4,26 @@
 import os, sys, getopt, time
 
 NET_PATH = './'
-ADDR_SPACE = 'ABC'
+ADDR_SPACE = 'ABCLS'
 CLEAN = False
 TIMEOUT = 0.500  # 500 millisec
 
 def read_msg(src):
 	global last_read
-	
+
 	out_dir = NET_PATH + src + '/OUT'
 	msgs = sorted(os.listdir(out_dir))
-	
+
 	if len(msgs) - 1 <= last_read[src]: return '', ''
 
 	next_msg = msgs[last_read[src] + 1]
 	dsts = next_msg.split('--')[1]
 	with open(out_dir + '/' + next_msg, 'rb') as f: msg = f.read()
-	
+
 	last_read[src] += 1
 	return msg, dsts
 
-  
+
 def write_msg(dst, msg):
 
 	in_dir = NET_PATH + dst + '/IN'
@@ -34,12 +34,12 @@ def write_msg(dst, msg):
 		next_msg = (int.from_bytes(bytes.fromhex(last_msg), byteorder='big') + 1).to_bytes(2, byteorder='big').hex()
 	else:
 		next_msg = '0000'
-	
+
 	with open(in_dir + '/' + next_msg, 'wb') as f: f.write(msg)
 
 	return
 
-# ------------       
+# ------------
 # main program
 # ------------
 
@@ -106,14 +106,14 @@ if CLEAN:
 		for f in os.listdir(in_dir): os.remove(in_dir + '/' + f)
 		out_dir = NET_PATH + addr + '/OUT'
 		for f in os.listdir(out_dir): os.remove(out_dir + '/' + f)
-        
+
 # initialize state (needed for tracking last read messages from OUT dirs)
-last_read = {}		
+last_read = {}
 for addr in ADDR_SPACE:
 	out_dir = NET_PATH + addr + '/OUT'
 	msgs = sorted(os.listdir(out_dir))
 	last_read[addr] = len(msgs) - 1
-		
+
 # main loop
 print('Main loop started, quit with pressing CTRL-C...')
 while True:
