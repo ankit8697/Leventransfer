@@ -370,11 +370,11 @@ while True:
                         print(f'Failed to retrieve the list of items.' )
                     else:
                         response = SUCCESS
-                        items_list = b''
+                        items_list = ''
                         print(CURRENT_DIR)
                         print(list)
                         for item in items:
-                            items_list += item + b'\n'
+                            items_list += item + '\n'
                         list_bytes = bytes(items_list, 'utf-8')
                         response += list_bytes
                         print(f'Successfully sent the list of items in {CURRENT_DIR} to client')
