@@ -27,12 +27,15 @@ BAD_TIMESTAMP = '502'    # invalid timestamp (expired or in the future)
 BAD_AUTH_AND_DEC = '503' # failure to verify authtag and decrypt
 BAD_CREDENTIALS = '504'  # invalid credentials (username, hash of password)
 BAD_SIGNATURE = '505'    # invalid signature
-
 TIMESTAMP_WINDOW = 5     # window for timestamp verification
+RED = '\033[91m'
+GREEN = '\033[92m'
+ORANGE = '\033[93m'
+BLUE = '\033[94m'
 
 # network constants/variables
 NET_PATH = './network/'
-OWN_ADDR = ''
+OWN_ADDR = 'L'
 SERVER_ADDR = 'S'
 LOGGED_IN = False
 
@@ -47,7 +50,7 @@ password = ''
 '''
 ### load key functions
 def load_publickey():
-    pubkeyfile = 'test_pubkey.pem'
+    pubkeyfile = 'client/test_pubkey.pem'
     with open(pubkeyfile, 'rb') as f:
         pubkeystr = f.read()
     try:
@@ -63,7 +66,6 @@ def send_login_message(username, password, sessionkey):
     payload = generate_login_payload(username, password)
     message = generate_message(TYPE_LOGIN, sessionkey, payload)
     netif.send_msg(SERVER_ADDR, message.encode('utf-8'))
-    print("Sent login message")
 
 
 # send command message
@@ -71,11 +73,10 @@ def send_command_message(command, sessionkey):
     payload = generate_command_payload(command)
     message = generate_message(TYPE_COMMAND, sessionkey, payload)
     netif.send_msg(SERVER_ADDR, message.encode('utf-8'))
-    print("Sent command message")
+    # print("Sent command message")
 
 # receive server message
 def receive_server_message():
-    print("Received server message")
     return netif.receive_msg(blocking=True)
 
 
@@ -203,12 +204,12 @@ def process_message(msg_type, msg, sessionkey):
         if msg_length != header_dict['length']:
             print(msg_length) #
             print(header_dict['length']) #
-            print("Server response error: invalid header length.")
+            print('Server response error: invalid header length.')
             return BAD_MSG_LENGTH, None
 
         # verify timestamp
         if not valid_timestamp(header_dict['timestamp']):
-            print("Server response error: invalid timestamp.")
+            print('Server response error: invalid timestamp.')
             return BAD_TIMESTAMP, None
 
         # authenticate and decrypt payload
@@ -219,7 +220,7 @@ def process_message(msg_type, msg, sessionkey):
         return SUCCESS, payload
 
     except (ValueError, KeyError):
-        print("Server response error: the response may be compromised.")
+        print('Server response error: the response may be compromised.')
         return BAD_AUTH_AND_DEC, None
 
 
@@ -232,7 +233,7 @@ def valid_signature(signature, signed_msg):
         verifier = pss.new(pubkey)
         verifier.verify(h, signature)
     except (ValueError, TypeError):
-        print("Server response error: unable to authenticate server.")
+        print('Server response error: unable to authenticate server.')
         return False
     else:
         return True
@@ -268,115 +269,140 @@ for opt, arg in opts:
     elif opt in ('-p', '--password'):
         password = arg
 
-# run client logic
 
-OWN_ADDR = 'L'
-
+# Login Protocol (send messages as 'L')
 netif = network_interface(NET_PATH, OWN_ADDR)
 while True:
-    if not LOGGED_IN:
-        SESSION_KEY = generate_sessionkey()
-        send_login_message(username, password, SESSION_KEY)
-        status, msg = receive_server_message()
+    SESSION_KEY = generate_sessionkey()
+    send_login_message(username, password, SESSION_KEY)
+    status, msg = receive_server_message()
 
-        print(msg)
-        if status:
-            server_code, payload = process_message(TYPE_LOGIN, msg, SESSION_KEY)
+    if status:
+        server_code, payload = process_message(TYPE_LOGIN, msg, SESSION_KEY)
 
-            if not server_code == SUCCESS: # server message is invalid
-                print("Login unsuccessful.")
-                break
-            else:
-                login_code = payload.decode('utf-8')
+        if not server_code == SUCCESS: # server message is invalid
+            print('Login unsuccessful - server response cannot be read')
+        else:
+            # process result of login
+            login_code = payload.decode('utf-8')
 
-                if login_code in [BAD_MSG_LENGTH, BAD_TIMESTAMP, BAD_AUTH_AND_DEC]:
-                    print("Login unsuccessful: login message may be compromised")
-                    break
-                elif login_code == BAD_CREDENTIALS:
-                    print("Login unsuccessful: username or password is incorrect")
-                    break
-                elif login_code == SUCCESS:
-                    LOGGED_IN = True
-                    with open('addr_mapping.json', 'r') as f:
-                        addr_dict = json.load(f)
-                        OWN_ADDR = addr_dict[username]
-                    print('Login successful :)')
+            if login_code in [BAD_MSG_LENGTH, BAD_TIMESTAMP, BAD_AUTH_AND_DEC]:
+                print('Login unsuccessful - login message cannot be read')
+            elif login_code == BAD_CREDENTIALS:
+                print('Login unsuccessful - username or password is incorrect')
+            elif login_code == SUCCESS:
+                LOGGED_IN = True
+                with open('client/addr_mapping.json', 'r') as f:
+                    addr_dict = json.load(f)
+                    OWN_ADDR = addr_dict[username]
+                print('Login successful :)')
+        break
 
-    else:
-        # We are now ready to send commands
-        command = input('Enter your command: ')
 
-        send_command_message(command, SESSION_KEY)
-        status, msg = receive_server_message()
+# Command Protocol (send messages as logged-in user)
+netif = network_interface(NET_PATH, OWN_ADDR)
+while LOGGED_IN:
+    # We are now ready to send commands
+    color = RED
+    command = input(f'{color}[{username}]\033[0m Enter your command: ')
 
-        if status:
-            server_code, payload = process_message(TYPE_COMMAND, msg, SESSION_KEY)
+    send_command_message(command, SESSION_KEY)
+    status, msg = receive_server_message()
 
-            if server_code == SUCCESS:
-                response = payload.decode('utf-8')
-                command_code = response[:3]
+    if status:
+        server_code, payload = process_message(TYPE_COMMAND, msg, SESSION_KEY)
+
+        if server_code == SUCCESS:
+            response = payload.decode('utf-8')
+            command_code = response[:3]
+
+            # get any attached data
+            if len(response) > 3:
                 data = response[3:]
 
-                if command[:3] == 'MKD':
-                    foldername = command[7:]
-                    if command_code == SUCCESS:
-                        print(f'the folder ${foldername} has been created.')
-                    else:
-                        print('There was an error in creating the folder.')
+            # output result of executing command
+            if command_code == BAD_COMMAND:
+                print('Usage: ')
+                print('  > Make directory')
+                print('        MKD -n <foldername>')
+                print('  > Remove directory')
+                print('        RMD -n <foldername>')
+                print('  > Get directory:')
+                print('        GWD')
+                print('  > Change directory')
+                print('        CWD -p <folderpath>')
+                print('  > List directory')
+                print('        LST')
+                print('  > Upload')
+                print('        UPL -f <filepath>')
+                print('  > Download')
+                print('        DNL -f <filename> -d <targetpath>')
+                print('  > Remove file')
+                print('        RMF -f <filename>')
 
-                elif command[:3] == 'RMD':
-                    foldername = command[7:]
-                    if command_code == SUCCESS:
-                        print(f'the folder ${foldername} has been removed.')
-                    else:
-                        print('There was an error in removing the folder.')
+            elif command[:3] == 'MKD':
+                foldername = command[7:]
+                if command_code == SUCCESS:
+                    print(f'The folder \"{foldername}\" has been created.')
+                else:
+                    print('There was an error in creating the folder.')
 
-                elif command[:3] == 'GWD':
-                    foldername = data
-                    if command_code == SUCCESS:
-                        print(f'the current folder is ${foldername}.')
-                    else:
-                        print('There was an error in identifying the current folder.')
+            elif command[:3] == 'RMD':
+                foldername = command[7:]
+                if command_code == SUCCESS:
+                    print(f'The folder \"{foldername}\" has been removed.')
+                else:
+                    print('There was an error in removing the folder.')
 
-                elif command[:3] == 'CWD':
-                    foldername = command[7:]
-                    if command_code == SUCCESS:
-                        print(f'the current folder is now changed to ${foldername}.')
-                    else:
-                        print('There was an error in changing the folder.')
+            elif command[:3] == 'GWD':
+                foldername = data
+                if command_code == SUCCESS:
+                    print(f'The current folder is \"{foldername}\".')
+                else:
+                    print('There was an error in identifying the current folder.')
 
-                elif command[:3] == 'LST':
-                    list = data
-                    if command_code == SUCCESS:
-                        print('Current folder:')
-                        for file in data.split('\n'):
-                            print(f'${file}\n')
-                    else:
-                        print('There was an error in creating the folder.')
+            elif command[:3] == 'CWD':
+                foldername = command[7:]
+                if command_code == SUCCESS:
+                    print(f'The current folder is changed to \"{foldername}\".')
+                else:
+                    print('There was an error in changing the folder.')
 
-                elif command[:3] == 'UPL':
-                    filename = command[7:]
-                    if command_code == SUCCESS:
-                        print(f'the file ${filename} has been uploaded.')
-                    else:
-                        print('There was an error in uploading the folder.')
+            elif command[:3] == 'LST':
+                list = data
+                if command_code == SUCCESS:
+                    print('Current folder:')
+                    for filename in data.split('\n'):
+                        print(f'\"{filename}\"\n')
+                else:
+                    print('There was an error in creating the folder.')
 
-                elif command[:3] == 'DNL':
-                    values = command.split(' ')
-                    filename = values[2]
-                    destination_path = values[4]
-                    if command_code == SUCCESS:
-                        print(f'the file ${filename} has been downloaded.')
-                    else:
-                        print('There was an error in downloading the folder.')
+            elif command[:3] == 'UPL':
+                filename = command[7:]
+                if command_code == SUCCESS:
+                    print(f'the file \"{filename}\" has been uploaded.')
+                else:
+                    print('There was an error in uploading the folder.')
 
-                elif command[:3] == 'RMF':
-                    filename = command[7:]
-                    if command_code == SUCCESS:
-                        print(f'the file ${filename} has been removed.')
-                    else:
-                        print('There was an error in removing the file.')
-        if input('Continue? (y/n): ') == 'n': break
+            elif command[:3] == 'DNL':
+                values = command.split(' ')
+                filename = values[2]
+                destination_path = values[4]
+                if command_code == SUCCESS:
+                    print(f'the file \"{filename}\" has been downloaded.')
+                else:
+                    print('There was an error in downloading the folder.')
+
+            elif command[:3] == 'RMF':
+                filename = command[7:]
+                if command_code == SUCCESS:
+                    print(f'the file \"{filename}\" has been removed.')
+                else:
+                    print('There was an error in removing the file.')
+        else:
+            print('The server response could not be read.')
+
+        if input(f'{color}[{username}]\033[0m Continue? (y/n): ') == 'n': break
 
 '''
 # sessionkey = generate_sessionkey()

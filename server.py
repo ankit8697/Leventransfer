@@ -35,7 +35,7 @@ TIMESTAMP_WINDOW = 5     # window for timestamp verification
 NET_PATH = './network/'
 OWN_ADDR = 'S'
 CLIENT_ADDR = 'L'
-CURRENT_DIR = ''
+CURRENT_DIR = './server/'
 NUMBER_OF_USERS = 4
 LOGGED_IN = False
 
@@ -49,7 +49,7 @@ SESSION_KEY = ''
 ### load key functions
 
 def load_keypair():
-    privkeyfile = 'test_keypair.pem'
+    privkeyfile = 'server/test_keypair.pem'
     # passphrase = getpass.getpass('Enter a passphrase to protect the saved private key')
     passphrase = 'cryptography'
 
@@ -83,7 +83,6 @@ def send_response(dst, msg_type, sessionkey, response):
 
 # receive client message
 def receive_client_message():
-    print("Received client message")
     return netif.receive_msg(blocking=True)
 
 
@@ -251,26 +250,23 @@ def verify_credentials(credentials):
     try:
         length_username = ord(credentials[:1])
         username = credentials[1:length_username + 1]
+        username = username.decode('utf-8')
         password = credentials[length_username + 1:]
-
-        # password = b'ilovemath'
 
         hashfn = SHA256.new()
         hashfn.update(password)
         hash_password = hashfn.digest()
         hash_password = b64encode(hash_password).decode('utf-8')
 
-        with open('users.json', 'r') as f:
+        with open('server/users.json', 'r') as f:
             credentials_dict = json.load(f)
 
-            if credentials_dict[username.decode('utf-8')] == hash_password:
-                with open('addr_mapping.json', 'r') as g:
+            if credentials_dict[username] == hash_password:
+                with open('server/addr_mapping.json', 'r') as g:
                     addr_dict = json.load(g)
-                    print("Username:" + username.decode('utf-8'))
-                    return addr_dict[username.decode('utf-8')]
+                    return username, addr_dict[username]
 
     except Exception as e:
-        print(e)
         print(e)
         print("Login message error: cannot verify user credentials.")
         return None
@@ -280,18 +276,13 @@ def verify_credentials(credentials):
 '''
 # '''
 netif = network_interface(NET_PATH, OWN_ADDR)
-CURRENT_DIR = NET_PATH
-print('Server connected...')
-print('update')
-while True:
-# Calling receive_msg() in non-blocking mode ...
-#	status, msg = netif.receive_msg(blocking=False)
-#	if status: print(msg)      # if status is True, then a message was returned in msg
-#	else: time.sleep(2)        # otherwise msg is empty
 
-# Calling receive_msg() in blocking mode ...
+# set server folder as root directory
+print('Server connected...')
+while True:
     print('entered loop')
-    status,msg = receive_client_message() # receive client login message
+    status, msg = receive_client_message() # receive client login message
+    print(msg)
 
     if status:
         if not LOGGED_IN:
@@ -299,30 +290,33 @@ while True:
 
             if response_code == SUCCESS:
                 # verify credentials
-                dirname = verify_credentials(payload)
-                if dirname:
+                username, user_addr = verify_credentials(payload)
+                if user_addr:
                     LOGGED_IN = True
-                    CURRENT_DIR += CLIENT_ADDR + '/IN/'
+                    CURRENT_DIR += username
+
                 else:
                     response_code = BAD_CREDENTIALS
 
             send_response(CLIENT_ADDR, TYPE_LOGIN, SESSION_KEY, response_code.encode('utf-8'))
-            CLIENT_ADDR = dirname
+            CLIENT_ADDR = user_addr
 
         else:
             SESSION_KEY, response_code, payload = process_message(TYPE_COMMAND, msg, SESSION_KEY)
 
             if response_code == SUCCESS:
                 command_arguments = payload.decode('utf-8').split()
-                command = command_arguments[0]
-                response = ''
+                command = ''
+                response = BAD_COMMAND
+
+                if len(command_arguments) > 0:
+                    command = command_arguments[0]
 
                 if command == 'MKD':
-                    name_of_folder = f"{CURRENT_DIR}{command_arguments[2]}"
+                    name_of_folder = f"{CURRENT_DIR}/{command_arguments[2]}"
                     try:
                         os.mkdir(name_of_folder)
                     except OSError:
-                        response = BAD_COMMAND
                         print("Creation of the directory $%s failed" % name_of_folder)
                     else:
                         response = SUCCESS
@@ -333,7 +327,6 @@ while True:
                     try:
                         os.rmdir(name_of_folder)
                     except OSError:
-                        response = BAD_COMMAND
                         print("Deletion of the directory $%s failed" % name_of_folder)
                     else:
                         response = SUCCESS
@@ -346,7 +339,6 @@ while True:
                     try:
                         current_folder = os.path.basename(CURRENT_DIR)
                     except OSError:
-                        response = BAD_COMMAND
                         print('There was an error in getting the name of the current folder.')
                     else:
                         response = SUCCESS + current_folder
@@ -357,7 +349,6 @@ while True:
                     try:
                         os.chdir(path_of_folder)
                     except OSError:
-                        response = BAD_COMMAND
                         print('That path is invalid or that folder could not be found.')
                     else:
                         response_code = SUCCESS
@@ -366,14 +357,14 @@ while True:
                 elif command == 'LST':
                     try:
                         items = os.listdir(CURRENT_DIR)
+                        print(items)
                     except OSError:
-                        response = BAD_COMMAND
                         print("Getting list of items from %s failed" % CURRENT_DIR)
                     else:
                         response = SUCCESS
-                        list_of_items = ''
+                        list_of_items = b''
                         for item in items:
-                            list_of_items += item + '\n'
+                            list_of_items += item + b'\n'
                         list_bytes = bytes(list_of_items, 'utf-8')
                         response += list_bytes
                         print('Successfully sent list of items from %s to client' % CURRENT_DIR)
@@ -383,7 +374,6 @@ while True:
                     try:
                         shutil.copyfile(path_of_file, CURRENT_DIR)
                     except OSError:
-                        response = BAD_COMMAND
                         print("Uploading of the file from %s failed" % path_of_file)
                     else:
                         response = SUCCESS
@@ -393,9 +383,8 @@ while True:
                     name_of_file = command_arguments[2]
                     destination_path = command_arguments[4]
                     try:
-                        shutil.copyfile(CURRENT_DIR+name_of_file, destination_path)
+                        shutil.copyfile(CURRENT_DIR + name_of_file, destination_path)
                     except OSError:
-                        response = BAD_COMMAND
                         print("Downloading of the file %s failed" % name_of_file)
                     else:
                         response = SUCCESS
@@ -403,11 +392,10 @@ while True:
 
                 elif command == 'RMF':
                     name_of_file = command_arguments[2]
-                    path_to_file = CURRENT_DIR+name_of_file
+                    path_to_file = CURRENT_DIR + name_of_file
                     try:
                         os.remove(path_to_file)
                     except OSError:
-                        response = BAD_COMMAND
                         print("Removal of the file %s failed" % name_of_file)
                     else:
                         response = SUCCESS
