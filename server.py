@@ -304,7 +304,8 @@ while True:
                     response_code = BAD_CREDENTIALS
 
             send_response(CLIENT_ADDR, TYPE_LOGIN, SESSION_KEY, response_code.encode('utf-8'))
-            CLIENT_ADDR = user_addr
+            if user_addr:
+                CLIENT_ADDR = user_addr
 
         else:
             SESSION_KEY, response_code, payload = process_message(TYPE_COMMAND, msg, SESSION_KEY)
