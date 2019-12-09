@@ -2,19 +2,10 @@
   "header": {
     "version": 1.0,
     "type": 1,
-<<<<<<< HEAD
-    "length": 50,
-    "timestamp": "1575916726891",
-    "random": "gBRJ"
-  },
-  "enc_payload": "pJ1J/bKU0fQ7juhhyw==",
-  "authtag": "GzuW5G2BR45Bb/Nk5MvGSw=="
-=======
     "length": 40,
     "timestamp": "1575917619551",
     "random": "NR8n"
   },
   "enc_payload": "bheK",
   "authtag": "iTNfGEp7TLxqhSfbHBuzPQ=="
->>>>>>> 2a36ee0713204497bb55ef4c7d58964202aafe2f
 }

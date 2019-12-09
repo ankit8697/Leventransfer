@@ -3,19 +3,10 @@
     "version": 1.0,
     "type": 0,
     "length": 296,
-<<<<<<< HEAD
-    "timestamp": "1575916687618",
-    "random": "i3f4"
-  },
-  "enc_payload": "16Hr",
-  "authtag": "ahsDrhyCMYuPoGJ+6OsHLg==",
-  "signature": "WisBrupggKSkY5vL4EFbEJ+dGge1fAJb2imEI4L8PLulByCf60QFMmY9qCP3SW8UIRp90Gj1VbKg91lUbQi+3kFAWCXzan/yKw6ImZwGA1NYlTkIh6rpKsU6Bq2HmlzfNRyVUPSDlj3pmeVP5L5EKo0cFcjDAFLI1rNB+3OrYPoAyhuPgBoO09YlJCb9fNQwusw6+KxNwkNCGC3i2a4L/QUzfJeoX9fZAIy5yOu96hRqg0BdFhh8ZpoKHXCwP4oKHRxcwIVUSCQxGwLeuHZAb+RZw6P+ES2PYJE2hrF/QuUvT9kEGfUnwC9IkFD8lo/F0bGvu0Wkbf0C0B3DkM8rUw=="
-=======
     "timestamp": "1575917613803",
     "random": "rafC"
   },
   "enc_payload": "SrIn",
   "authtag": "pNDl9Xs3PDLrUTX5ZGh4kg==",
   "signature": "YguNs7zPgEkfdqIMDMePdJ62RzLByY8/EQplmqcqX5SAmAzX0MwlRD62DUM7zCTNTxE7UhrW5StHBc/+cMW26LsRcYAZxzaZRARALo2+vqa5syoKogubJpzK3AqwmHRtkKs8VUndti9PKChE2PbFnZIWpTMKti7pnnaP8bbzGynW4kx8OvdOlBsxXu05lR3gNCDnpWrGNetnf3fLhcDLtqBZ9G2okgdRozxpAiCodNXWiTTKo8UTwmWxHupIXgUdwCUF5t6idgwbtL1NzWS1Ot0lfVyy2JcB+HBWhneRMbB//wK8qqOWS5uyl76V4jlipC5t4usUI3GptEE28UBsGg=="
->>>>>>> 2a36ee0713204497bb55ef4c7d58964202aafe2f
 }

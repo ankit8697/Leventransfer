@@ -3,19 +3,10 @@
     "version": 1.0,
     "type": 0,
     "length": 312,
-<<<<<<< HEAD
-    "timestamp": "1575917481524",
-    "random": "zgoc"
-  },
-  "enc_sessionkey": "Bih3dFLdvTTYOL76R9B/A7y9NqQmF0XaQWSVE444xL/ebVI/a/X0H9FG69HEguAGDbfNl0sjnqDDlnhyVFPkhzALbEA1THI2/7tSDQs6Qp/a0nvqGI4GLtpes8Rsive/7vDEadaKVU5EUxLhk+Nx2sieKGp5qzF4knZKjsOeLiSDBYSihZO6xyxhOSDJpeeuSdbElCCGsJh39wCmkgfPp0c8w/YrzGSjEud6EFVllD6Z1VzIomRllpjv1C9C2gt5UUc/zwQV12lho7je2EIdtS2+FaKb9sxrQAcy6INdLUsG9fUqHN1PbeOdq2iWudhxCH68QQ/53h/1jYcHDluOvw==",
-  "enc_payload": "wSm9doN0PPdq5tyB+HIcrDJ0cQ==",
-  "authtag": "WK/k96ZX6OJHims40WrMUg=="
-=======
     "timestamp": "1575917681947",
     "random": "iK07"
   },
   "enc_sessionkey": "V/GrW86h/VlAXTfB5NLJXjAf/ppG6lyRv7RdV5Qo7g0ueoWyrSk1J9NVaoUOwSo/pxZtbc4SKFIQz9r549faZIGKUakmd4bBqIpn4tw3hNhFx38NXVE2wD2g3oCHCrU5f4W0T8IDp5vG/F2vsC5GHFnZcAh2DUjSoez+RbmlA/RoJk1rP7pavM0vf0t9IAWvjE4LvG+795SbDSRFefLzAjgk2QmNFW3qDfH97Pd6qLkt20DtBHiqAWB3Pv6fF83XqQnzGaKAmPf55DJhcOk2yMqRmyHDUVdgalqHpG/Yx7iiYTjTUVffHVFHCuFHCgReFFsfpTW7aoSb5MdZh0+aOQ==",
   "enc_payload": "K/T8lhwt7+JJmXiXCtuiwZLt7Q==",
   "authtag": "HH0p2+zIeCJDL6L2Vjkfvw=="
->>>>>>> 2a36ee0713204497bb55ef4c7d58964202aafe2f
 }

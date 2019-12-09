@@ -292,7 +292,7 @@ def fix_path(directory, username):
 '''
 ================================== MAIN CODE ===================================
 '''
-'''
+# '''
 netif = network_interface(NET_PATH, OWN_ADDR)
 
 # set server folder as root directory
