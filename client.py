@@ -351,7 +351,6 @@ while LOGGED_IN:
                     print(f'The current folder \"{foldername}\" could not be changed via the given path.')
 
             elif command[:3] == 'LST':
-                list = data
                 if command_code == SUCCESS:
                     print('Current folder:')
                     for filename in data.split('\n'):
