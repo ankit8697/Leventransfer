@@ -439,8 +439,8 @@ while True:
                         dstpath = CURRENT_CLIENT_DIR + USERNAME + '/' + dstpath
                         source = CURRENT_SERVER_DIR + '/' + filename
                         try:
-                            shutil.copy2(source, dstpath)
-                        except OSError as e:
+                            shutil.copy(source, dstpath)
+                        except (OSError, TypeError) as e:
                             print(e)
                             print(f'The file \"{filename}\" from \"{dstpath}\" could not be downloaded.')
                         else:
@@ -456,7 +456,7 @@ while True:
                         filepath = CURRENT_DIR + USERNAME + "/"+ filename
                         try:
                             os.remove(filepath)
-                        except OSError as e:
+                        except (OSError, TypeError) as e:
                             print(e)
                             print(f'The file \"{filepath}\" could not be removed.')
                         else:
