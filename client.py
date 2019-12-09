@@ -252,6 +252,7 @@ def verify_command(message):
         return False
 
     command = message_args[0]
+    
     if command == "MKD" or command == "RMD":
         return len(message_args) == 3 and message_args[1] == '-n'
     elif command == "GWD" or command == "LST":
