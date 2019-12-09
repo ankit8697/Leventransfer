@@ -349,7 +349,7 @@ while LOGGED_IN:
 
     command = input(f'{color}[{username}]\033[0m Enter your command: ')
 
-    while(!verify_command(command)):
+    while not verify_command(command):
         print("Incorrect flags in command. See usage below.")
         print_usage()
         command = input(f'{color}[{username}]\033[0m Enter your command: ')

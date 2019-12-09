@@ -494,28 +494,28 @@ while True:
                             response = SUCCESS
                             print(f'The file \"{filename}\" from \"{dstpath}\" has been downloaded.')
 
-                    elif command == 'RMF':
-                        if len(command_arguments) != 3 or command_arguments[1] != '-f':
-                            print('An incorrect flag was used for the \'RMF\' command.')
-                        else:
-                    filename = command_arguments[2]
-                    filepath = CURRENT_DIR + USERNAME + "/"+ filename
-                    try:
-                        os.remove(filepath)
-                    except (OSError, TypeError) as e:
-                        print(e)
-                        print(f'The file \"{filepath}\" could not be removed.')
+                elif command == 'RMF':
+                    if len(command_arguments) != 3 or command_arguments[1] != '-f':
+                        print('An incorrect flag was used for the \'RMF\' command.')
                     else:
                         filename = command_arguments[2]
                         filepath = CURRENT_DIR + USERNAME + "/"+ filename
                         try:
                             os.remove(filepath)
-                        except OSError as e:
+                        except (OSError, TypeError) as e:
                             print(e)
                             print(f'The file \"{filepath}\" could not be removed.')
                         else:
-                            response = SUCCESS
-                            print(f'The file \"{filepath}\" has been removed.')
+                            filename = command_arguments[2]
+                            filepath = CURRENT_DIR + USERNAME + "/"+ filename
+                            try:
+                                os.remove(filepath)
+                            except OSError as e:
+                                print(e)
+                                print(f'The file \"{filepath}\" could not be removed.')
+                            else:
+                                response = SUCCESS
+                                print(f'The file \"{filepath}\" has been removed.')
 
                     print(CLIENT_ADDR)
                     send_response(CLIENT_ADDR, TYPE_COMMAND, SESSION_KEY, response.encode('utf-8'))
