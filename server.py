@@ -28,7 +28,7 @@ BAD_TIMESTAMP = '502'    # invalid timestamp (expired or in the future)
 BAD_AUTH_AND_DEC = '503' # failure to verify authtag and decrypt
 BAD_CREDENTIALS = '504'  # invalid credentials (username, hash of password)
 BAD_SIGNATURE = '505'    # invalid signature
-
+SERVER_BUSY = '506'
 TIMESTAMP_WINDOW = 5     # window for timestamp verification
 
 # network constants/variables
@@ -332,7 +332,6 @@ while True:
 
         else:
             SESSION_KEY, response_code, payload = process_message(TYPE_COMMAND, msg, SESSION_KEY)
-
             if response_code == SUCCESS:
                 command_arguments = payload.decode('utf-8').split()
                 command = ''

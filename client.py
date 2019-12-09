@@ -26,7 +26,8 @@ BAD_MSG_LENGTH = '501'   # invalid message length in header
 BAD_TIMESTAMP = '502'    # invalid timestamp (expired or in the future)
 BAD_AUTH_AND_DEC = '503' # failure to verify authtag and decrypt
 BAD_CREDENTIALS = '504'  # invalid credentials (username, hash of password)
-BAD_SIGNATURE = '505'    # invalid signature
+BAD_SIGNATURE = '505'
+SERVER_BUSY = '506'    # invalid signature
 TIMESTAMP_WINDOW = 5     # window for timestamp verification
 RED = '\033[91m'
 GREEN = '\033[92m'
@@ -246,6 +247,25 @@ def valid_timestamp(timestamp):
     tolerance = TIMESTAMP_WINDOW * 1e3 # in milliseconds
     return (delta_t >= 0) and (delta_t < tolerance)
 
+def verify_command(message):
+    message_args = message.split()
+    if len(message) < 3:
+        return False
+
+    command = message_args[0]
+    
+    if command == "MKD" or command == "RMD":
+        return len(message_args) == 3 and message_args[1] == '-n'
+    elif command == "GWD" or command == "LST":
+        return len(message_args) == 1
+    elif command == "CWD":
+        return len(message_args) == 3 and message_args[1] == '-p'
+    elif command == "UPL" or command == "RMF":
+        return len(message_args) == 3 and message_args[1] == '-f'
+    elif command == "DNL":
+        return len(message_args) == 5 and message_args[1] == '-f' and message_args[3] == '-d'
+    else:
+        return False
 
 '''
 ================================== MAIN CODE ===================================
@@ -270,6 +290,24 @@ for opt, arg in opts:
     elif opt in ('-p', '--password'):
         password = arg
 
+def print_usage():
+    print('Usage: ')
+    print('  > Make directory')
+    print('        MKD -n <foldername>')
+    print('  > Remove directory')
+    print('        RMD -n <foldername>')
+    print('  > Get directory:')
+    print('        GWD')
+    print('  > Change directory')
+    print('        CWD -p <folderpath>')
+    print('  > List directory')
+    print('        LST')
+    print('  > Upload')
+    print('        UPL -f <filepath>')
+    print('  > Download')
+    print('        DNL -f <filename> -d <targetpath>')
+    print('  > Remove file')
+    print('        RMF -f <filename>')
 
 # Login Protocol (send messages as 'L')
 netif = network_interface(NET_PATH, OWN_ADDR)
@@ -291,6 +329,8 @@ while True:
                 print('Login unsuccessful - login message cannot be read')
             elif login_code == BAD_CREDENTIALS:
                 print('Login unsuccessful - username or password is incorrect')
+            elif login_code == SERVER_BUSY:
+                print('Login unsuccessful - someone else is logged into the server')
             elif login_code == SUCCESS:
                 LOGGED_IN = True
                 with open('client/addr_mapping.json', 'r') as f:
@@ -305,7 +345,14 @@ netif = network_interface(NET_PATH, OWN_ADDR)
 while LOGGED_IN:
     # We are now ready to send commands
     color = RED
+
+
     command = input(f'{color}[{username}]\033[0m Enter your command: ')
+
+    while not verify_command(command):
+        print("Incorrect flags in command. See usage below.")
+        print_usage()
+        command = input(f'{color}[{username}]\033[0m Enter your command: ')
 
     send_command_message(command, SESSION_KEY)
     status, msg = receive_server_message()
@@ -382,29 +429,15 @@ while LOGGED_IN:
                     print(f'There file \"{filename}\" could not be removed.')
 
             else:
-                print('Usage: ')
-                print('  > Make directory')
-                print('        MKD -n <foldername>')
-                print('  > Remove directory')
-                print('        RMD -n <foldername>')
-                print('  > Get directory:')
-                print('        GWD')
-                print('  > Change directory')
-                print('        CWD -p <folderpath>')
-                print('  > List directory')
-                print('        LST')
-                print('  > Upload')
-                print('        UPL -f <filepath>')
-                print('  > Download')
-                print('        DNL -f <filename> -d <targetpath>')
-                print('  > Remove file')
-                print('        RMF -f <filename>')
+                print_usage()
 
         else:
             print('The server response could not be read.')
 
-        if input(f'{color}[{username}]\033[0m Continue? (y/n): ') == 'n': break
-
+        if input(f'{color}[{username}]\033[0m Continue? (y/n): ') == 'n':
+            payload = 'EXT'
+            send_command_message(payload, SESSION_KEY)
+            break
 '''
 # sessionkey = generate_sessionkey()
 # payload = generate_login_payload("bob", "abc")
