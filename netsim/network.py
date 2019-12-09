@@ -3,7 +3,7 @@
 
 import os, sys, getopt, time
 
-NET_PATH = './'
+NET_PATH = '../network/'
 ADDR_SPACE = 'ABCLS'
 CLEAN = False
 TIMEOUT = 0.500  # 500 millisec

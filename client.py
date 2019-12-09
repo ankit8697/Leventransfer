@@ -264,6 +264,7 @@ for opt, arg in opts:
         print('Usage:')
         print('  - Login Protocol')
         print('    login.py -u <username> -p <password>')
+        sys.exit(1)
     elif opt in ('-u', '--username'):
         username = arg
     elif opt in ('-p', '--password'):

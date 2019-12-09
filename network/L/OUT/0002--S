@@ -2,6 +2,7 @@
   "header": {
     "version": 1.0,
     "type": 0,
+<<<<<<< HEAD
     "length": 311,
     "timestamp": "1575915481621",
     "random": "vHzz"
@@ -9,4 +10,13 @@
   "enc_sessionkey": "lSGoItNPUE78WGGO3cNGW/yh0MAD1a8ZnDNNBIuS6KR+o8/SSK3xfxGT4q4O4e8P/5Ebw1++u7XfXx6WcEQaoPt1rhqvpuibMCrWcANCBELVvtdprtCak6uRxHpmfbNOOj818P51yE4RvyK8LCumzt9xUnJEpzf7itTMzBDS7CMP0nwXrFYOp7A+uHqKXk6VoVTXhU3Z18AcKidDlZQqxa08i1yk+H/y48tlhV5VeFuIC3uS6KMecmuNgvS0zkfIWBIXKIyWIwdit+fD2RLNZfc37ZfkZSDklwMhNbEBb2ok5+9dYz0UbCEmx1/FeRbuetP+vbZaSrve5NeoSL9JBA==",
   "enc_payload": "xf8R0LSE6h79Krr6/IHVSGy0",
   "authtag": "OaV0qCTV9dOdYOh+lzBv7w=="
+=======
+    "length": 312,
+    "timestamp": "1575912648532",
+    "random": "ivQK"
+  },
+  "enc_sessionkey": "iA5q7szX1ir2zqZ6Tuzv05ecmY3ZDogOxJGEY0OBvmR7KyolJtsNh6ejTdWhk2c2Ni5P1BxHDs+jeMP/Fg+YQDZadINwzY55tsmseWy359h8yaXKmYdS81CyaJYz2LhwoFf5koZhktMJK99A07eJ68cBd/qOb4h30z5gul1ufQG+8kzlbKqN9qpGTZRprGCBixCA11FWCrPvDR2nYj2UqFG9FCBCoTnqgPZ2rAZ8f4Jm9qjTg8VFoWPTvsXkCTYju+8ye69tVdAydlTfEj01ZlV7IaLf3/Zst8WoEbyfF7XO9OHGzgvCPcVyxsh3R3MIAvH27UFr+/Vr07w4PGhc6g==",
+  "enc_payload": "Q7V8enoM9b2Ktb+pEDW8cYYAvw==",
+  "authtag": "M+hU/U8eQq8lOKh838DSBQ=="
+>>>>>>> c8afb1d127ec7fb525be6369306537d4821c963f
 }
