@@ -282,9 +282,13 @@ def verify_credentials(credentials):
 #checks path validity
 def fix_path(directory, username):
     real_path = os.path.realpath(directory)
-    path = real_path.remove(os.getcwd())
+    path = real_path.replace(os.getcwd(), '.')
     print(path)
+    expected_prefix = './server/' + username
+    if path[0:len(expected_prefix)] != expected_prefix:
+            return None
     return path
+
     #sub_dir = real_path.split('/')
     #print(sub_dir)
     #fixed_path = f''
@@ -298,7 +302,7 @@ def fix_path(directory, username):
 '''
 ================================== MAIN CODE ===================================
 '''
-#'''
+# '''
 netif = network_interface(NET_PATH, OWN_ADDR)
 
 # set server folder as root directory
@@ -340,26 +344,26 @@ while True:
                     command = command_arguments[0]
 
                 if command == 'MKD':
-                    if command_arguments[1] != '-n':
-                        print('An incorrect flag was used. Please use the correct flag.')
+                    if len(command_arguments) != 3 or command_arguments[1] != '-n':
+                        print('An incorrect flag was used for the \'MKD\' command.')
                     else:
                         foldername = f"{CURRENT_DIR}/{command_arguments[2]}"
                         try:
-                            os.mkdir(foldername)
-                        except OSError:
+                            os.mkdir(fix_path(foldername, USERNAME))
+                        except (OSError, TypeError):
                             print(f'The folder \"{foldername}\" could not be created.')
                         else:
                             response = SUCCESS
                             print(f'The folder \"{foldername}\" has been created.')
 
                 elif command == 'RMD':
-                    if command_arguments[1] != '-n':
-                        print('An incorrect flag was used. Please use the correct flag.')
+                    if len(command_arguments) != 3 or command_arguments[1] != '-n':
+                        print('An incorrect flag was used for the \'RMD\' command.')
                     else:
                         foldername = f"{CURRENT_DIR}/{command_arguments[2]}"
                         try:
-                            os.rmdir(foldername)
-                        except OSError:
+                            os.rmdir(fix_path(foldername, USERNAME))
+                        except (OSError, TypeError):
                             print(f'The folder \"{foldername}\" could not be removed.')
                         else:
                             response = SUCCESS
@@ -375,22 +379,23 @@ while True:
                         print(f'The current folder is \"{foldername}\".')
 
                 elif command == 'CWD':
-                    if command_arguments[1] != '-p':
-                        print('An incorrect flag was used. Please use the correct flag.')
+                    if len(command_arguments) != 3 or command_arguments[1] != '-p':
+                        print('An incorrect flag was used for the \'CWD\' command.')
                     else:
                         foldername = command_arguments[2]
-                        temp_dir = f'{CURRENT_DIR}/{foldername}'
+                        temp_dir = fix_path(f'{CURRENT_DIR}/{foldername}', USERNAME)
+                        print(temp_dir)
                         try:
                             if os.path.exists(temp_dir):
                                 CURRENT_DIR = temp_dir
                                 real_path = os.path.realpath(CURRENT_DIR)
 
                                 response = SUCCESS
-                                print(f'The current folder is now \"{foldername}\".')
+                                print(f'The current directory is now \"{CURRENT_DIR}\".')
                             else:
-                                print(f'The current folder \"{foldername}\" could not be changed via the given path.')
-                        except OSError:
-                            print(f'The current folder \"{foldername}\" could not be changed via the given path.')
+                                print(f'The current folder could not be changed via the given path.')
+                        except (OSError, TypeError):
+                            print(f'The current folder could not be changed via the given path.')
 
                 elif command == 'LST':
                     try:
@@ -410,8 +415,8 @@ while True:
                         print(f'Successfully sent the list of items in {CURRENT_SERVER_DIR} to client')
 
                 elif command == 'UPL':
-                    if command_arguments[1] != '-f':
-                        print('An incorrect flag was used. Please use the correct flag.')
+                    if len(command_arguments) != 3 or command_arguments[1] != '-f':
+                        print('An incorrect flag was used for the \'UPL\' command.')
                     else:
                         filepath = command_arguments[2]
                         filepath = CURRENT_CLIENT_DIR + USERNAME + filepath
@@ -425,8 +430,8 @@ while True:
                             print(f'The file from \"{filepath}\" has been uploaded.')
 
                 elif command == 'DNL':
-                    if command_arguments[1] != '-f' or command_arguments[3] != '-d':
-                        print('An incorrect flag was used. Please use the correct flag.')
+                    if len(command_arguments) != 5 or command_arguments[1] != '-f' or command_arguments[3] != '-d':
+                        print('An incorrect flag was used for the \'DNL\' command.')
                     else:
                         filename = command_arguments[2]
                         dstpath = command_arguments[4]
@@ -441,8 +446,8 @@ while True:
 
 
                 elif command == 'RMF':
-                    if command_arguments[1] != '-f':
-                        print('An incorrect flag was used. Please use the correct flag.')
+                    if len(command_arguments) != 3 or command_arguments[1] != '-f':
+                        print('An incorrect flag was used for the \'RMF\' command.')
                     else:
                         filename = command_arguments[2]
                         filepath = CURRENT_DIR + filename
@@ -454,13 +459,11 @@ while True:
                             response = SUCCESS
                             print(f'There file \"{filename}\" has been removed.')
 
-                print(CLIENT_ADDR)
                 send_response(CLIENT_ADDR, TYPE_COMMAND, SESSION_KEY, response.encode('utf-8'))
 
 
 ''' # TESTING
-print(os.getcwd())
-path = '/mnt/c/Users/winst/github/Leventransfer/server/levente12/hello'
+path = 'C:/Users/winst/github/Leventransfer/server/levente12/../istvan'
 print(os.path.realpath(path))
 print(fix_path(path, 'levente12'))
 # '''

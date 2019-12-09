@@ -346,9 +346,9 @@ while LOGGED_IN:
             elif command[:3] == 'CWD':
                 foldername = command[7:]
                 if command_code == SUCCESS:
-                    print(f'The current folder is now \"{foldername}\".')
+                    print(f'The current directory has been updated.')
                 else:
-                    print(f'The current folder \"{foldername}\" could not be changed via the given path.')
+                    print(f'The current directory could not be changed via the given path.')
 
             elif command[:3] == 'LST':
                 if command_code == SUCCESS:
