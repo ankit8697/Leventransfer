@@ -1,12 +1,11 @@
 {
   "header": {
     "version": 1.0,
-    "type": 0,
-    "length": 312,
-    "timestamp": "1575915646455",
-    "random": "YxX/"
+    "type": 1,
+    "length": 49,
+    "timestamp": "1575917625016",
+    "random": "Zpy1"
   },
-  "enc_sessionkey": "ofraIPG4rWQ/6yJypmmQptabxOm/fQD0gq0kRfIYEoRqxnL21M6L7HLCSzR1uQRpmT245CdKaiCB1nvgQKyRiTGXLyRreUsMrnX8USZ5CpoUsjtPlKefe7Joc3SW5VoMgqoJ+PTP7Zd/XpglCBxZApaVoFXr4/FhDfD6VMUYP1WFgaoNVPfsxqqOWNB7NIJ+1QxNGEbJQJVS5HB34ClO4tkrs9szMtb7d24ch2rDPWtDQQBtdcrFKIzoybRfFbpEdKAENYh370djJ/JllH2zoV0SfOhUdY1s+OfNMdrrcaVm+Xqj2zD8HEVPyGw4sdknhMYzDMrIxslAJmfEnXFHng==",
-  "enc_payload": "2euuOwILi3dFkdGhukGuWCU0vQ==",
-  "authtag": "G6S2V6p2LdTM1ZZ91Qi1aA=="
+  "enc_payload": "tWFb5mu9e42JJUYv",
+  "authtag": "FnO7da0hooo387nybcPe7A=="
 }
