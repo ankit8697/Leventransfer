@@ -39,6 +39,8 @@ CURRENT_DIR = './server/'
 NUMBER_OF_USERS = 4
 USERNAME = ''
 LOGGED_IN = False
+CURRENT_SERVER_DIR = './server/'
+CURRENT_CLIENT_DIR = './client/'
 
 # crypto constants/variables
 SESSION_KEY = ''
@@ -280,19 +282,23 @@ def verify_credentials(credentials):
 #checks path validity
 def fix_path(directory, username):
     real_path = os.path.realpath(directory)
-    sub_dir = real_path.split('/')
-    print(sub_dir)
-    fixed_path = f''
-    for i in range(sub_dir.index(username), len(sub_dir)-1):
-        fixed_path += sub_dir[i] + '/'
-    fixed_path += sub_dir[len(sub_dir)-1]
-    return fixed_path
+    path = real_path.remove(os.getcwd())
+    print(path)
+    return path
+    #sub_dir = real_path.split('/')
+    #print(sub_dir)
+    #fixed_path = f''
+    #for i in range(sub_dir.index(username), len(sub_dir)-1):
+        #fixed_path += sub_dir[i] + '/'
+    #fixed_path += sub_dir[len(sub_dir)-1]
+    #return fixed_path
+
 
 
 '''
 ================================== MAIN CODE ===================================
 '''
-# '''
+#'''
 netif = network_interface(NET_PATH, OWN_ADDR)
 
 # set server folder as root directory
@@ -388,28 +394,31 @@ while True:
 
                 elif command == 'LST':
                     try:
-                        items = os.listdir(CURRENT_DIR)
+                        print(CURRENT_SERVER_DIR)
+                        items = os.listdir(CURRENT_SERVER_DIR)
                     except OSError:
                         print(f'Failed to retrieve the list of items.' )
                     else:
                         response = SUCCESS
                         items_list = ''
-                        print(CURRENT_DIR)
-                        print(list)
+                        print(items)
                         for item in items:
                             items_list += item + '\n'
-                        list_bytes = bytes(items_list, 'utf-8')
-                        response += list_bytes
-                        print(f'Successfully sent the list of items in {CURRENT_DIR} to client')
+
+                        items_list = items_list[:-1]
+                        response += items_list
+                        print(f'Successfully sent the list of items in {CURRENT_SERVER_DIR} to client')
 
                 elif command == 'UPL':
                     if command_arguments[1] != '-f':
                         print('An incorrect flag was used. Please use the correct flag.')
                     else:
                         filepath = command_arguments[2]
+                        filepath = CURRENT_CLIENT_DIR + USERNAME + filepath
                         try:
-                            shutil.copyfile(filepath, CURRENT_DIR)
-                        except OSError:
+                            shutil.copyfile(filepath, CURRENT_SERVER_DIR)
+                        except OSError as e:
+                            print(e)
                             print(f'The file from \"{filepath}\" could not be uploaded')
                         else:
                             response = SUCCESS
@@ -421,8 +430,9 @@ while True:
                     else:
                         filename = command_arguments[2]
                         dstpath = command_arguments[4]
+                        dstpath = CURRENT_CLIENT_DIR + USERNAME + dstpath
                         try:
-                            shutil.copyfile(CURRENT_DIR + filename, dstpath)
+                            shutil.copyfile(CURRENT_SERVER_DIR + filename, dstpath)
                         except OSError:
                             print(f'The file \"{filename}\" from \"{dstpath}\" could not be downloaded.')
                         else:
@@ -449,6 +459,7 @@ while True:
 
 
 ''' # TESTING
+print(os.getcwd())
 path = '/mnt/c/Users/winst/github/Leventransfer/server/levente12/hello'
 print(os.path.realpath(path))
 print(fix_path(path, 'levente12'))
