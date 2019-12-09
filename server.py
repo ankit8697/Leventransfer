@@ -183,7 +183,7 @@ def process_message(msg_type, msg, sessionkey=None):
             sessionkey = decrypt_sessionkey(enc_sessionkey)
             msg_length += len(enc_sessionkey)
             # failure to decrypt session key returns in NULL response code
-            if (not sessionkey): return None, BAD_AUTH_AND_DEC, payload
+            if (not sessionkey): return None, BAD_AUTH_AND_DEC, None
 
         header_dict = msg_dict['header']
         digit_1 = int(header_dict['version'])
@@ -334,7 +334,7 @@ while True:
 
                 elif command == 'GWD':
                     try:
-                        current_folder = os.path.basename(CURRENT_DIR)
+                        foldername = os.path.basename(CURRENT_DIR)
                     except OSError:
                         print('The current folder could not be identified.')
                     else:
@@ -358,10 +358,12 @@ while True:
                         print(f'Failed to retrieve the list of items.' )
                     else:
                         response = SUCCESS
-                        list_of_items = b''
+                        items_list = b''
+                        print(CURRENT_DIR)
+                        print(list)
                         for item in items:
-                            list_of_items += item + b'\n'
-                        list_bytes = bytes(list_of_items, 'utf-8')
+                            items_list += item + b'\n'
+                        list_bytes = bytes(items_list, 'utf-8')
                         response += list_bytes
                         print(f'Successfully sent the list of items in {CURRENT_DIR} to client')
 
