@@ -247,6 +247,25 @@ def valid_timestamp(timestamp):
     tolerance = TIMESTAMP_WINDOW * 1e3 # in milliseconds
     return (delta_t >= 0) and (delta_t < tolerance)
 
+def verify_command(message):
+    message_args = message.split()
+    if len(message) < 3:
+        return False
+
+    command = message_args[0]
+    
+    if command == "MKD" or command == "RMD":
+        return len(message_args) == 3 and message_args[1] == '-n'
+    elif command == "GWD" or command == "LST":
+        return len(message_args) == 1
+    elif command == "CWD":
+        return len(message_args) == 3 and message_args[1] == '-p'
+    elif command == "UPL" or command == "RMF":
+        return len(message_args) == 3 and message_args[1] == '-f'
+    elif command == "DNL":
+        return len(message_args) == 5 and message_args[1] == '-f' and message_args[3] == '-d'
+    else:
+        return False
 
 '''
 ================================== MAIN CODE ===================================
@@ -271,6 +290,24 @@ for opt, arg in opts:
     elif opt in ('-p', '--password'):
         password = arg
 
+def print_usage():
+    print('Usage: ')
+    print('  > Make directory')
+    print('        MKD -n <foldername>')
+    print('  > Remove directory')
+    print('        RMD -n <foldername>')
+    print('  > Get directory:')
+    print('        GWD')
+    print('  > Change directory')
+    print('        CWD -p <folderpath>')
+    print('  > List directory')
+    print('        LST')
+    print('  > Upload')
+    print('        UPL -f <filepath>')
+    print('  > Download')
+    print('        DNL -f <filename> -d <targetpath>')
+    print('  > Remove file')
+    print('        RMF -f <filename>')
 
 # Login Protocol (send messages as 'L')
 netif = network_interface(NET_PATH, OWN_ADDR)
@@ -308,7 +345,14 @@ netif = network_interface(NET_PATH, OWN_ADDR)
 while LOGGED_IN:
     # We are now ready to send commands
     color = RED
+
+
     command = input(f'{color}[{username}]\033[0m Enter your command: ')
+
+    while(!verify_command(command)):
+        print("Incorrect flags in command. See usage below.")
+        print_usage()
+        command = input(f'{color}[{username}]\033[0m Enter your command: ')
 
     send_command_message(command, SESSION_KEY)
     status, msg = receive_server_message()
@@ -385,23 +429,7 @@ while LOGGED_IN:
                     print(f'There file \"{filename}\" could not be removed.')
 
             else:
-                print('Usage: ')
-                print('  > Make directory')
-                print('        MKD -n <foldername>')
-                print('  > Remove directory')
-                print('        RMD -n <foldername>')
-                print('  > Get directory:')
-                print('        GWD')
-                print('  > Change directory')
-                print('        CWD -p <folderpath>')
-                print('  > List directory')
-                print('        LST')
-                print('  > Upload')
-                print('        UPL -f <filepath>')
-                print('  > Download')
-                print('        DNL -f <filename> -d <targetpath>')
-                print('  > Remove file')
-                print('        RMF -f <filename>')
+                print_usage()
 
         else:
             print('The server response could not be read.')
