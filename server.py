@@ -281,9 +281,13 @@ def verify_credentials(credentials):
 #checks path validity
 def fix_path(directory, username):
     real_path = os.path.realpath(directory)
-    path = real_path.remove(os.getcwd())
+    path = real_path.replace(os.getcwd(), '.')
     print(path)
+    expected_prefix = './server/' + username
+    if path[0:len(expected_prefix)] != expected_prefix:
+            return None
     return path
+
     #sub_dir = real_path.split('/')
     #print(sub_dir)
     #fixed_path = f''
@@ -297,7 +301,7 @@ def fix_path(directory, username):
 '''
 ================================== MAIN CODE ===================================
 '''
-#'''
+# '''
 netif = network_interface(NET_PATH, OWN_ADDR)
 
 # set server folder as root directory
@@ -330,24 +334,24 @@ while True:
                 CLIENT_ADDR = user_addr
 
         else:
-            if header['type'] == TYPE_LOGIN:
-                response = SERVER_BUSY
-                print('Someone else is logged into the server')
-                send_response(CLIENT_ADDR, TYPE_LOGIN, SESSION_KEY, response.encode('utf-8'))
-            else:
-                SESSION_KEY, response_code, payload = process_message(TYPE_COMMAND, msg, SESSION_KEY)
+            SESSION_KEY, response_code, payload = process_message(TYPE_COMMAND, msg, SESSION_KEY)
+            if response_code == SUCCESS:
+                command_arguments = payload.decode('utf-8').split()
+                command = ''
+                response = BAD_COMMAND
 
-                if response_code == SUCCESS:
-                    command_arguments = payload.decode('utf-8').split()
-                    command = ''
-                    response = BAD_COMMAND
+                if len(command_arguments) > 0:
+                    command = command_arguments[0]
 
-                    if len(command_arguments) > 0:
-                        command = command_arguments[0]
-
-                    if command == 'MKD':
-                        if command_arguments[1] != '-n':
-                            print('An incorrect flag was used. Please use the correct flag.')
+                if command == 'MKD':
+                    if len(command_arguments) != 3 or command_arguments[1] != '-n':
+                        print('An incorrect flag was used for the \'MKD\' command.')
+                    else:
+                        foldername = f"{CURRENT_DIR}/{command_arguments[2]}"
+                        try:
+                            os.mkdir(fix_path(foldername, USERNAME))
+                        except (OSError, TypeError):
+                            print(f'The folder \"{foldername}\" could not be created.')
                         else:
                             foldername = f"{CURRENT_DIR}/{command_arguments[2]}"
                             try:
@@ -359,54 +363,93 @@ while True:
                                 response = SUCCESS
                                 print(f'The folder \"{foldername}\" has been created.')
 
-                    elif command == 'RMD':
-                        if command_arguments[1] != '-n':
-                            print('An incorrect flag was used. Please use the correct flag.')
+                elif command == 'RMD':
+                    if len(command_arguments) != 3 or command_arguments[1] != '-n':
+                        print('An incorrect flag was used for the \'RMD\' command.')
+                    else:
+                        foldername = f"{CURRENT_DIR}/{command_arguments[2]}"
+                        try:
+                            os.rmdir(fix_path(foldername, USERNAME))
+                        except (OSError, TypeError):
+                            print(f'The folder \"{foldername}\" could not be removed.')
                         else:
-                            foldername = f"{CURRENT_DIR}/{command_arguments[2]}"
-                            try:
-                                os.rmdir(foldername)
-                            except OSError as e:
-                                print(e)
-                                print(f'The folder \"{foldername}\" could not be removed.')
-                            else:
-                                response = SUCCESS
-                                print(f'The folder \"{foldername}\" has been removed.')
+                            response = SUCCESS
+                            print(f'The folder \"{foldername}\" has been removed.')
 
-                    elif command == 'GWD':
+                elif command == 'GWD':
+                    try:
+                        foldername = os.path.basename(CURRENT_DIR)
+                    except OSError:
+                        print('The current folder could not be identified.')
+                    else:
+                        response = SUCCESS + foldername
+                        print(f'The current folder is \"{foldername}\".')
+
+                elif command == 'CWD':
+                    if len(command_arguments) != 3 or command_arguments[1] != '-p':
+                        print('An incorrect flag was used for the \'CWD\' command.')
+                    else:
+                        foldername = command_arguments[2]
+                        temp_dir = fix_path(f'{CURRENT_DIR}/{foldername}', USERNAME)
+                        print(temp_dir)
+                        try:
+                            if os.path.exists(temp_dir):
+                                CURRENT_DIR = temp_dir
+                                real_path = os.path.realpath(CURRENT_DIR)
+
+                                response = SUCCESS
+                                print(f'The current directory is now \"{CURRENT_DIR}\".')
+                            else:
+                                print(f'The current folder could not be changed via the given path.')
+                        except (OSError, TypeError):
+                            print(f'The current folder could not be changed via the given path.')
+
+                elif command == 'LST':
+                    try:
+                        print(CURRENT_SERVER_DIR)
+                        items = os.listdir(CURRENT_SERVER_DIR)
+                    except OSError:
+                        print(f'Failed to retrieve the list of items.' )
+                    else:
+                        response = SUCCESS
+                        items_list = ''
+                        print(items)
+                        for item in items:
+                            items_list += item + '\n'
+
+                        items_list = items_list[:-1]
+                        response += items_list
+                        print(f'Successfully sent the list of items in {CURRENT_SERVER_DIR} to client')
+
+                elif command == 'UPL':
+                    if len(command_arguments) != 3 or command_arguments[1] != '-f':
+                        print('An incorrect flag was used for the \'UPL\' command.')
+                    else:
+                        filepath = command_arguments[2]
+                        filepath = CURRENT_CLIENT_DIR + USERNAME + '/' + filepath
+                        print(filepath)
                         try:
                             foldername = os.path.basename(CURRENT_DIR)
                         except OSError as e:
                             print(e)
                             print('The current folder could not be identified.')
                         else:
-                            response = SUCCESS + foldername
-                            print(f'The current folder is \"{foldername}\".')
+                            response = SUCCESS
+                            print(f'The file from \"{filepath}\" has been uploaded.')
 
-                    elif command == 'CWD':
-                        if command_arguments[1] != '-p':
-                            print('An incorrect flag was used. Please use the correct flag.')
-                        else:
-                            foldername = command_arguments[2]
-                            temp_dir = f'{CURRENT_DIR}/{foldername}'
-                            try:
-                                if os.path.exists(temp_dir):
-                                    CURRENT_DIR = temp_dir
-                                    real_path = os.path.realpath(CURRENT_DIR)
-
-                                    response = SUCCESS
-                                    print(f'The current folder is now \"{foldername}\".')
-                                else:
-                                    print(f'The current folder \"{foldername}\" could not be changed via the given path.')
-                            except OSError:
-                                print(f'The current folder \"{foldername}\" could not be changed via the given path.')
-
-                    elif command == 'LST':
+                elif command == 'DNL':
+                    if len(command_arguments) != 5 or command_arguments[1] != '-f' or command_arguments[3] != '-d':
+                        print('An incorrect flag was used for the \'DNL\' command.')
+                    else:
+                        filename = command_arguments[2]
+                        dstpath = command_arguments[4]
+                        dstpath = CURRENT_CLIENT_DIR + USERNAME + '/' + dstpath
+                        source = CURRENT_SERVER_DIR + '/' + filename
                         try:
-                            print(CURRENT_SERVER_DIR)
-                            items = os.listdir(CURRENT_SERVER_DIR)
-                        except OSError:
-                            print(f'Failed to retrieve the list of items.' )
+                            shutil.copy(source, dstpath)
+                        except (OSError, TypeError) as e:
+                            print(e)
+                            print(f'The file \"{filename}\" from \"{dstpath}\" could not be downloaded.')
                         else:
                             response = SUCCESS
                             items_list = ''
@@ -418,63 +461,70 @@ while True:
                             response += items_list
                             print(f'Successfully sent the list of items in {CURRENT_SERVER_DIR} to client')
 
-                    elif command == 'UPL':
-                        if command_arguments[1] != '-f':
-                            print('An incorrect flag was used. Please use the correct flag.')
+                elif command == 'UPL':
+                    if command_arguments[1] != '-f':
+                        print('An incorrect flag was used. Please use the correct flag.')
+                    else:
+                        filepath = command_arguments[2]
+                        filepath = CURRENT_CLIENT_DIR + USERNAME + '/' + filepath
+                        print(filepath)
+                        try:
+                            shutil.copy2(filepath, CURRENT_SERVER_DIR)
+                        except OSError as e:
+                            print(e)
+                            print(f'The file from \"{filepath}\" could not be uploaded')
                         else:
-                            filepath = command_arguments[2]
-                            filepath = CURRENT_CLIENT_DIR + USERNAME + '/' + filepath
-                            print(filepath)
-                            try:
-                                shutil.copy2(filepath, CURRENT_SERVER_DIR)
-                            except OSError as e:
-                                print(e)
-                                print(f'The file from \"{filepath}\" could not be uploaded')
-                            else:
-                                response = SUCCESS
-                                print(f'The file from \"{filepath}\" has been uploaded.')
+                            response = SUCCESS
+                            print(f'The file from \"{filepath}\" has been uploaded.')
 
-                    elif command == 'DNL':
-                        if command_arguments[1] != '-f' or command_arguments[3] != '-d':
-                            print('An incorrect flag was used. Please use the correct flag.')
+                elif command == 'DNL':
+                    if command_arguments[1] != '-f' or command_arguments[3] != '-d':
+                        print('An incorrect flag was used. Please use the correct flag.')
+                    else:
+                        filename = command_arguments[2]
+                        dstpath = command_arguments[4]
+                        dstpath = CURRENT_CLIENT_DIR + USERNAME + '/' + dstpath
+                        source = CURRENT_SERVER_DIR + '/' + filename
+                        try:
+                            shutil.copy2(source, dstpath)
+                        except OSError as e:
+                            print(e)
+                            print(f'The file \"{filename}\" from \"{dstpath}\" could not be downloaded.')
                         else:
-                            filename = command_arguments[2]
-                            dstpath = command_arguments[4]
-                            dstpath = CURRENT_CLIENT_DIR + USERNAME + '/' + dstpath
-                            source = CURRENT_SERVER_DIR + '/' + filename
-                            try:
-                                shutil.copy2(source, dstpath)
-                            except OSError as e:
-                                print(e)
-                                print(f'The file \"{filename}\" from \"{dstpath}\" could not be downloaded.')
-                            else:
-                                response = SUCCESS
-                                print(f'The file \"{filename}\" from \"{dstpath}\" has been downloaded.')
-
+                            response = SUCCESS
+                            print(f'The file \"{filename}\" from \"{dstpath}\" has been downloaded.')
 
                     elif command == 'RMF':
-                        if command_arguments[1] != '-f':
-                            print('An incorrect flag was used. Please use the correct flag.')
+                        if len(command_arguments) != 3 or command_arguments[1] != '-f':
+                            print('An incorrect flag was used for the \'RMF\' command.')
                         else:
-                            filename = command_arguments[2]
-                            filepath = CURRENT_DIR + USERNAME + "/"+ filename
-                            try:
-                                os.remove(filepath)
-                            except OSError as e:
-                                print(e)
-                                print(f'The file \"{filepath}\" could not be removed.')
-                            else:
-                                response = SUCCESS
-                                print(f'The file \"{filepath}\" has been removed.')
+                    filename = command_arguments[2]
+                    filepath = CURRENT_DIR + USERNAME + "/"+ filename
+                    try:
+                        os.remove(filepath)
+                    except (OSError, TypeError) as e:
+                        print(e)
+                        print(f'The file \"{filepath}\" could not be removed.')
+                    else:
+                        filename = command_arguments[2]
+                        filepath = CURRENT_DIR + USERNAME + "/"+ filename
+                        try:
+                            os.remove(filepath)
+                        except OSError as e:
+                            print(e)
+                            print(f'The file \"{filepath}\" could not be removed.')
+                        else:
+                            response = SUCCESS
+                            print(f'The file \"{filepath}\" has been removed.')
 
                     print(CLIENT_ADDR)
                     send_response(CLIENT_ADDR, TYPE_COMMAND, SESSION_KEY, response.encode('utf-8'))
 
+                send_response(CLIENT_ADDR, TYPE_COMMAND, SESSION_KEY, response.encode('utf-8'))
 
 
 ''' # TESTING
-print(os.getcwd())
-path = '/mnt/c/Users/winst/github/Leventransfer/server/levente12/hello'
+path = 'C:/Users/winst/github/Leventransfer/server/levente12/../istvan'
 print(os.path.realpath(path))
 print(fix_path(path, 'levente12'))
 # '''
