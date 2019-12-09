@@ -448,14 +448,15 @@ while True:
                         print('An incorrect flag was used. Please use the correct flag.')
                     else:
                         filename = command_arguments[2]
-                        filepath = CURRENT_DIR + filename
+                        filepath = CURRENT_DIR + USERNAME + "/"+ filename
                         try:
                             os.remove(filepath)
-                        except OSError:
-                            print(f'The file \"{filename}\" could not be removed.')
+                        except OSError as e:
+                            print(e)
+                            print(f'The file \"{filepath}\" could not be removed.')
                         else:
                             response = SUCCESS
-                            print(f'There file \"{filename}\" has been removed.')
+                            print(f'The file \"{filepath}\" has been removed.')
 
                 print(CLIENT_ADDR)
                 send_response(CLIENT_ADDR, TYPE_COMMAND, SESSION_KEY, response.encode('utf-8'))
