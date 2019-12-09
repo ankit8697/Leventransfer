@@ -76,9 +76,10 @@ def load_publickey(pubkeyfile):
 ### send and receive message functions
 # send server response
 def send_response(dst, msg_type, sessionkey, response):
-    login_response = generate_message(msg_type, sessionkey, response)
-    netif.send_msg(dst, login_response.encode('utf-8'))
-    print("Sent login response")
+    response = generate_message(msg_type, sessionkey, response)
+    print(dst)
+    netif.send_msg(dst, response.encode('utf-8'))
+    print("Sent response")
 
 
 # receive client message
@@ -267,6 +268,7 @@ def verify_credentials(credentials):
                 with open('server/addr_mapping.json', 'r') as g:
                     addr_dict = json.load(g)
                     return username, addr_dict[username]
+        return None, None
 
     except Exception as e:
         print(e)
@@ -296,6 +298,7 @@ while True:
                 if user_addr:
                     LOGGED_IN = True
                     CURRENT_DIR += username
+                    print(CURRENT_DIR)
 
                 else:
                     response_code = BAD_CREDENTIALS
@@ -353,14 +356,14 @@ while True:
                     if command_arguments[1] != '-p':
                         print('An incorrect flag was used. Please use the correct flag.')
                     else:
-                        path_of_folder = command_arguments[2]
+                        foldername = command_arguments[2]
                         try:
-                            os.chdir(path_of_folder)
+                            os.chdir(f'{CURRENT_DIR}/{foldername}')
                         except OSError:
-                            print('The current folder could not be changed via the given path.')
+                            print(f'The current folder \"{foldername}\" could not be changed via the given path.')
                         else:
-                            CURRENT_DIR = path_of_folder
-                            response_code = SUCCESS
+                            CURRENT_DIR += f'/{foldername}'
+                            response = SUCCESS
                             print(f'The current folder is now \"{foldername}\".')
 
                 elif command == 'LST':
@@ -421,6 +424,7 @@ while True:
                             response = SUCCESS
                             print(f'There file \"{filename}\" has been removed.')
 
+                print(CLIENT_ADDR)
                 send_response(CLIENT_ADDR, TYPE_COMMAND, SESSION_KEY, response.encode('utf-8'))
 
 

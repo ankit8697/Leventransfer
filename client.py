@@ -347,7 +347,7 @@ while LOGGED_IN:
                 if command_code == SUCCESS:
                     print(f'The current folder is now \"{foldername}\".')
                 else:
-                    print('The current folder could not be changed via the given path.')
+                    print(f'The current folder \"{foldername}\" could not be changed via the given path.')
 
             elif command[:3] == 'LST':
                 list = data
