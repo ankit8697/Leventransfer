@@ -1,4 +1,4 @@
-import sys, getopt, getpass, json
+import sys, getopt, getpass, json, time
 from Crypto.PublicKey import RSA
 from Crypto.Cipher import PKCS1_OAEP
 from Crypto.Cipher import AES
@@ -44,6 +44,7 @@ LOGGED_IN = False
 sessionkey = ''
 username = ''
 password = ''
+attacker = '0'
 
 
 '''
@@ -63,10 +64,25 @@ def load_publickey():
 
 ### send and receive message functions
 # send login message
-def send_login_message(username, password, sessionkey):
+def send_login_message(username, password, sessionkey, attacker):
     payload = generate_login_payload(username, password)
     message = generate_message(TYPE_LOGIN, sessionkey, payload)
-    netif.send_msg(SERVER_ADDR, message.encode('utf-8'))
+    color = RED
+
+    if attacker == '1':
+        print(f'{color}Launch replay attack\033[0m')
+        # replay attack: wait 5s to send the message
+        time.sleep(5)
+        netif.send_msg(SERVER_ADDR, message.encode('utf-8'))
+    elif attacker == '2':
+        print(f'{color}Launch modification attack\033[0m')
+        # modification attack: the attacker changes the message
+        msg_dict = json.loads(message)
+        msg_dict['enc_payload'] = 'I_LOVE_CRYPTO'
+        message = json.dumps(msg_dict, indent=2)
+        netif.send_msg(SERVER_ADDR, message.encode('utf-8'))
+    else:
+        netif.send_msg(SERVER_ADDR, message.encode('utf-8'))
 
 
 # send command message
@@ -267,28 +283,6 @@ def verify_command(message):
     else:
         return False
 
-'''
-================================== MAIN CODE ===================================
-'''
-# '''
-# parse command line arguments
-try:
-    opts, args = getopt.getopt(sys.argv[1:], 'hu:p:', ['help', 'username=', 'password='])
-except:
-    print('Usage:')
-    print('  - Login Protocol:')
-    print('    login.py -u <username> -p <password>')
-
-for opt, arg in opts:
-    if opt in ('-h', '--help'):
-        print('Usage:')
-        print('  - Login Protocol')
-        print('    login.py -u <username> -p <password>')
-        sys.exit(1)
-    elif opt in ('-u', '--username'):
-        username = arg
-    elif opt in ('-p', '--password'):
-        password = arg
 
 def print_usage():
     print('Usage: ')
@@ -309,11 +303,38 @@ def print_usage():
     print('  > Remove file')
     print('        RMF -f <filename>')
 
+
+'''
+================================== MAIN CODE ===================================
+'''
+# '''
+# parse command line arguments
+try:
+    opts, args = getopt.getopt(sys.argv[1:], 'hu:p:a:', ['help', 'username=', 'password=', 'attacker='])
+except:
+    print('Usage:')
+    print('  - Login Protocol:')
+    print('    login.py -u <username> -p <password>')
+
+for opt, arg in opts:
+    if opt in ('-h', '--help'):
+        print('Usage:')
+        print('  - Login Protocol')
+        print('    login.py -u <username> -p <password>')
+        sys.exit(1)
+    elif opt in ('-u', '--username'):
+        username = arg
+    elif opt in ('-p', '--password'):
+        password = arg
+    elif opt in ('-a', '--attacker'):
+        attacker = arg
+
+
 # Login Protocol (send messages as 'L')
 netif = network_interface(NET_PATH, OWN_ADDR)
 while True:
     SESSION_KEY = generate_sessionkey()
-    send_login_message(username, password, SESSION_KEY)
+    send_login_message(username, password, SESSION_KEY, attacker)
     status, msg = receive_server_message()
 
     if status:
@@ -325,12 +346,14 @@ while True:
             # process result of login
             login_code = payload.decode('utf-8')
 
-            if login_code in [BAD_MSG_LENGTH, BAD_TIMESTAMP, BAD_AUTH_AND_DEC]:
-                print('Login unsuccessful - login message cannot be read')
+            if login_code in [BAD_MSG_LENGTH, BAD_AUTH_AND_DEC]:
+                print('Login unsuccessful - login cannot be authenticated')
+            elif login_code == BAD_TIMESTAMP:
+                print('Login unsuccessful - login expired')
             elif login_code == BAD_CREDENTIALS:
                 print('Login unsuccessful - username or password is incorrect')
             elif login_code == SERVER_BUSY:
-                print('Login unsuccessful - someone else is logged into the server')
+                print('Login unsuccessful - the server is currently busy')
             elif login_code == SUCCESS:
                 LOGGED_IN = True
                 with open('client/addr_mapping.json', 'r') as f:
@@ -436,9 +459,3 @@ while LOGGED_IN:
             payload = 'EXT'
             send_command_message(payload, SESSION_KEY)
             break
-'''
-# sessionkey = generate_sessionkey()
-# payload = generate_login_payload("bob", "abc")
-# message = generate_message(TYPE_LOGIN, sessionkey, payload)
-# print(message)
-# '''

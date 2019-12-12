@@ -30,6 +30,10 @@ BAD_CREDENTIALS = '504'  # invalid credentials (username, hash of password)
 BAD_SIGNATURE = '505'    # invalid signature
 SERVER_BUSY = '506'
 TIMESTAMP_WINDOW = 5     # window for timestamp verification
+RED = '\033[91m'
+GREEN = '\033[92m'
+ORANGE = '\033[93m'
+BLUE = '\033[94m'
 
 # network constants/variables
 NET_PATH = './network/'
@@ -52,7 +56,7 @@ SESSION_KEY = ''
 
 def load_keypair():
     privkeyfile = 'server/test_keypair.pem'
-    # passphrase = getpass.getpass('Enter a passphrase to protect the saved private key')
+    # passphrase = getpass.getpass('Enter a passphrase to protect the saved private key:')
     passphrase = 'cryptography'
 
     with open(privkeyfile, 'rb') as f:
@@ -78,9 +82,9 @@ def load_publickey(pubkeyfile):
 ### send and receive message functions
 # send server response
 def send_response(dst, msg_type, sessionkey, response):
-    response = generate_message(msg_type, sessionkey, response)
-    netif.send_msg(dst, response.encode('utf-8'))
-    print("Sent response")
+    response = generate_message(msg_type, sessionkey, response).encode('utf-8')
+    display_sent_msg(response)
+    netif.send_msg(dst, response)
 
 
 # receive client message
@@ -177,10 +181,11 @@ def generate_payload(response):
 def process_message(msg_type, msg, sessionkey=None):
     try:
         msg_dict = json.loads(msg.decode('utf-8'))
+        header_dict = msg_dict['header']
         msg_length = 0
 
         # parse fields in the message
-        if msg_type == TYPE_LOGIN:
+        if header_dict['type'] == TYPE_LOGIN:
             enc_sessionkey = b64decode(msg_dict['enc_sessionkey'].encode('utf-8'))
             sessionkey = decrypt_sessionkey(enc_sessionkey)
             msg_length += len(enc_sessionkey)
@@ -188,8 +193,9 @@ def process_message(msg_type, msg, sessionkey=None):
             if (not sessionkey):
                 sessionkey = generate_sessionkey()
                 return sessionkey, BAD_AUTH_AND_DEC, None
+            if (msg_type == TYPE_COMMAND):
+                return sessionkey, SERVER_BUSY, None
 
-        header_dict = msg_dict['header']
         digit_1 = int(header_dict['version'])
         digit_2 = int(header_dict['version'] * 10) % 10
         header_version = digit_1.to_bytes(1, byteorder='big') + \
@@ -264,7 +270,9 @@ def verify_credentials(credentials):
 
         with open('server/users.json', 'r') as f:
             credentials_dict = json.load(f)
-
+            print(f'User: {username}')
+            print(f'Hash password: {hash_password}')
+            print(f'Actual hash: {credentials_dict[username]}')
             if credentials_dict[username] == hash_password:
                 with open('server/addr_mapping.json', 'r') as g:
                     addr_dict = json.load(g)
@@ -291,9 +299,16 @@ def fix_path(directory, username, type = 'SERVER'):
     return path
 
 
+def display_sent_msg(msg):
+    color = ORANGE
+    print(f'{color}\nMessage sent:\033[0m')
+    print(msg.decode('utf-8'))
+    print()
+
 
 def display_received_msg(msg):
-    print('Message received:')
+    color = BLUE
+    print(f'{color}\nMessage received:\033[0m')
     print(msg.decode('utf-8'))
     print()
 
@@ -313,6 +328,7 @@ while True:
     if status:
         if not LOGGED_IN:
             SESSION_KEY, response_code, payload = process_message(TYPE_LOGIN, msg)
+            user_addr = None
 
             if response_code == SUCCESS:
                 # verify credentials
@@ -332,6 +348,10 @@ while True:
 
         else:
             SESSION_KEY, response_code, payload = process_message(TYPE_COMMAND, msg, SESSION_KEY)
+
+            if response_code == SERVER_BUSY:
+                send_response('L', TYPE_LOGIN, SESSION_KEY, response_code.encode('utf-8'))
+
             if response_code == SUCCESS:
                 command_arguments = payload.decode('utf-8').split()
                 command = ''
@@ -343,8 +363,10 @@ while True:
                 if command == 'MKD':
                     foldername = f"{CURRENT_SERVER_DIR}/{command_arguments[2]}"
                     try:
+                        print(fix_path(foldername, USERNAME))
                         os.mkdir(fix_path(foldername, USERNAME))
-                    except (OSError, TypeError):
+                    except (OSError, TypeError) as e:
+                        print(e)
                         print(f'The folder \"{foldername}\" could not be created.')
                     else:
                         response = SUCCESS
@@ -393,7 +415,7 @@ while True:
                     else:
                         response = SUCCESS
                         items_list = ''
-                        print(items)
+                        # print(items)
                         for item in items:
                             items_list += item + '\n'
 
@@ -440,11 +462,14 @@ while True:
                         response = SUCCESS
                         print(f'The file \"{filepath}\" has been removed.')
 
+                # used to indicate to server that user has logged out
+                elif command == 'EXT':
+                    LOGGED_IN = False
+                    USERNAME = ''
+                    CLIENT_ADDR = 'L'
+                    CURRENT_SERVER_DIR = './server/'
+                    CURRENT_CLIENT_DIR = './client/'
+                    print('The user logged out.')
+                    continue
+
                 send_response(CLIENT_ADDR, TYPE_COMMAND, SESSION_KEY, response.encode('utf-8'))
-
-
-''' # TESTING
-path = 'C:/Users/winst/github/Leventransfer/server/levente12/../istvan'
-print(os.path.realpath(path))
-print(fix_path(path, 'levente12'))
-# '''
