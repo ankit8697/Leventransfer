@@ -347,10 +347,13 @@ while True:
                 CLIENT_ADDR = user_addr
 
         else:
-            SESSION_KEY, response_code, payload = process_message(TYPE_COMMAND, msg, SESSION_KEY)
+            sessionkey, response_code, payload = process_message(TYPE_COMMAND, msg, SESSION_KEY)
 
             if response_code == SERVER_BUSY:
-                send_response('L', TYPE_LOGIN, SESSION_KEY, response_code.encode('utf-8'))
+                send_response('L', TYPE_LOGIN, sessionkey, response_code.encode('utf-8'))
+                continue
+
+            SESSION_KEY = sessionkey
 
             if response_code == SUCCESS:
                 command_arguments = payload.decode('utf-8').split()
@@ -376,6 +379,11 @@ while True:
                     foldername = f"{CURRENT_SERVER_DIR}/{command_arguments[2]}"
                     try:
                         os.rmdir(fix_path(foldername, USERNAME))
+                        if command_arguments[2] == '.':
+                            CURRENT_SERVER_DIR = fix_path(foldername, USERNAME)
+                            folder = os.path.basename(CURRENT_SERVER_DIR)
+                            CURRENT_SERVER_DIR = CURRENT_SERVER_DIR[:-len(folder)-1]
+
                     except (OSError, TypeError):
                         print(f'The folder \"{foldername}\" could not be removed.')
                     else:
@@ -384,12 +392,11 @@ while True:
 
                 elif command == 'GWD':
                     try:
-                        foldername = os.path.basename(CURRENT_SERVER_DIR)
+                        directory = CURRENT_SERVER_DIR.replace('./server/', '')
+                        response = SUCCESS + directory
+                        print(f'The current directory is \"{directory}\".')
                     except OSError:
-                        print('The current folder could not be identified.')
-                    else:
-                        response = SUCCESS + foldername
-                        print(f'The current folder is \"{foldername}\".')
+                        print('The current directory could not be identified.')
 
                 elif command == 'CWD':
                     foldername = command_arguments[2]
@@ -398,12 +405,11 @@ while True:
                     try:
                         if os.path.exists(temp_dir):
                             CURRENT_SERVER_DIR = temp_dir
-                            real_path = os.path.realpath(CURRENT_SERVER_DIR)
-
+                            directory = CURRENT_SERVER_DIR.replace('./server/', '')
                             response = SUCCESS
-                            print(f'The current directory is now \"{CURRENT_SERVER_DIR}\".')
+                            print(f'The current directory is now \"{directory}\".')
                         else:
-                            print(f'The current folder could not be changed via the given path.')
+                            print(f'The current directory could not be changed via the given path.')
                     except (OSError, TypeError):
                         print(f'The current folder could not be changed via the given path.')
 

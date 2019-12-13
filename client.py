@@ -407,9 +407,9 @@ while LOGGED_IN:
             elif command[:3] == 'GWD':
                 foldername = data
                 if command_code == SUCCESS:
-                    print(f'The current folder is \"{foldername}\".')
+                    print(f'The current directory is \"{foldername}\".')
                 else:
-                    print('The current folder could not be identified.')
+                    print('The current directory could not be identified.')
 
             elif command[:3] == 'CWD':
                 foldername = command[7:]
@@ -420,7 +420,6 @@ while LOGGED_IN:
 
             elif command[:3] == 'LST':
                 if command_code == SUCCESS:
-                    print('Current folder:')
                     for filename in data.split('\n'):
                         print(f'\"{filename}\"')
                 else:

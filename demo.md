@@ -18,8 +18,8 @@ $ MKD -n projects
 
 ```
 $ CWD -p hw
-$ UPL -n hw1.pdf
-$ UPL -n hw2.pdf
+$ UPL -f hw1.pdf
+$ UPL -f hw2.pdf
 ```
 
 * delete file hw1.pdf (RMF)
@@ -52,7 +52,7 @@ $ RMD -n .
 $ CWD -p hw
 ```
 
-* list files in hw folder (LST) 
+* list files in hw folder (LST)
 
 ```
 $ LST
@@ -86,7 +86,7 @@ $ python3 client.py -u levente12 -p 123456
 * impersonation attack
 
 ```
-$ python3 client.py -u levente12 -p Ey3L0v3m@@thH^C 
+$ python3 client.py -u levente12 -p Ey3L0v3m@@thH^C
 $ CWD -p ../gabor@ait
 ```
 
