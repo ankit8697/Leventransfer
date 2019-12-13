@@ -452,7 +452,7 @@ while True:
 
                 elif command == 'RMF':
                     filename = command_arguments[2]
-                    filepath = CURRENT_SERVER_DIR + USERNAME + "/"+ filename
+                    filepath = f'{CURRENT_SERVER_DIR}/{filename}'
                     try:
                         os.remove(fix_path(filepath, USERNAME))
                     except (OSError, TypeError) as e:
