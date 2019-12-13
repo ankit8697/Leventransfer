@@ -10,7 +10,7 @@ cryptography
 
 #### Username-Password Pairs:
 usernames = ['levente12', 'istvanist', 'gabor@ait']
-passwords = ['Ey3L0v3m@@thH','tEs$sor1t2','aitAITaitA1T']
+passwords = ['Ey3L0v3m@@thH','tEssor1t2','aitAITaitA1T']
 
 #### Success and Error Dictionary:
 success_error_dict = {200: Success, 500: ‘Invalid Credentials’, 501: ‘Timestamp out of Range’, 502: ‘Unable to Authenticate’, 503: ‘Bad Mac’}
