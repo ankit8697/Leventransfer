@@ -47,6 +47,7 @@ CURRENT_CLIENT_DIR = './client/'
 
 # crypto constants/variables
 SESSION_KEY = ''
+KEY_PAIR = None
 
 
 '''
@@ -56,8 +57,8 @@ SESSION_KEY = ''
 
 def load_keypair():
     privkeyfile = 'server/test_keypair.pem'
-    # passphrase = getpass.getpass('Enter a passphrase to protect the saved private key:')
-    passphrase = 'cryptography'
+    passphrase = getpass.getpass('Enter a passphrase to load the RSA keypair:')
+    # passphrase = 'cryptography'
 
     with open(privkeyfile, 'rb') as f:
         keypairstr = f.read()
@@ -81,8 +82,8 @@ def load_publickey(pubkeyfile):
 
 ### send and receive message functions
 # send server response
-def send_response(dst, msg_type, sessionkey, response):
-    response = generate_message(msg_type, sessionkey, response).encode('utf-8')
+def send_response(dst, msg_type, keypair, sessionkey, response):
+    response = generate_message(msg_type, keypair, sessionkey, response).encode('utf-8')
     display_sent_msg(response)
     netif.send_msg(dst, response)
 
@@ -94,7 +95,7 @@ def receive_client_message():
 
 ### generate message functions
 # create server message
-def generate_message(msg_type, sessionkey, payload):
+def generate_message(msg_type, keypair, sessionkey, payload):
     # get timestamp and random bytes
     timestamp = generate_timestamp()
     random = Random.get_random_bytes(3)
@@ -112,7 +113,6 @@ def generate_message(msg_type, sessionkey, payload):
         enc_payload, authtag = AE.encrypt_and_digest(payload)
 
         # sign message
-        keypair = load_keypair()
         signer = pss.new(keypair)
         hashfn = SHA256.new(header + enc_payload + authtag)
         signature = signer.sign(hashfn)
@@ -178,7 +178,7 @@ def generate_payload(response):
 
 ### process message functions
 # process client message to get session key, response code, payload
-def process_message(msg_type, msg, sessionkey=None):
+def process_message(msg_type, msg, keypair, sessionkey=None):
     try:
         msg_dict = json.loads(msg.decode('utf-8'))
         header_dict = msg_dict['header']
@@ -187,7 +187,7 @@ def process_message(msg_type, msg, sessionkey=None):
         # parse fields in the message
         if header_dict['type'] == TYPE_LOGIN:
             enc_sessionkey = b64decode(msg_dict['enc_sessionkey'].encode('utf-8'))
-            sessionkey = decrypt_sessionkey(enc_sessionkey)
+            sessionkey = decrypt_sessionkey(enc_sessionkey, keypair)
             msg_length += len(enc_sessionkey)
             # failure to decrypt session key returns in NULL response code
             if (not sessionkey):
@@ -236,9 +236,8 @@ def process_message(msg_type, msg, sessionkey=None):
 
 
 # get session key
-def decrypt_sessionkey(enc_sessionkey):
+def decrypt_sessionkey(enc_sessionkey, keypair):
     try:
-        keypair = load_keypair()
         RSAcipher = PKCS1_OAEP.new(keypair)
         return RSAcipher.decrypt(enc_sessionkey)
 
@@ -270,9 +269,7 @@ def verify_credentials(credentials):
 
         with open('server/users.json', 'r') as f:
             credentials_dict = json.load(f)
-            print(f'User: {username}')
-            print(f'Hash password: {hash_password}')
-            print(f'Actual hash: {credentials_dict[username]}')
+            
             if credentials_dict[username] == hash_password:
                 with open('server/addr_mapping.json', 'r') as g:
                     addr_dict = json.load(g)
@@ -316,18 +313,21 @@ def display_received_msg(msg):
 '''
 ================================== MAIN CODE ===================================
 '''
-# '''
+# set server folder as root directory
 netif = network_interface(NET_PATH, OWN_ADDR)
 
-# set server folder as root directory
+# load keypair using passphrase
+KEY_PAIR = load_keypair()
+
 print('Server connected...')
+
 while True:
     status, msg = receive_client_message() # receive client login message
     display_received_msg(msg)
 
     if status:
         if not LOGGED_IN:
-            SESSION_KEY, response_code, payload = process_message(TYPE_LOGIN, msg)
+            SESSION_KEY, response_code, payload = process_message(TYPE_LOGIN, msg, KEY_PAIR)
             user_addr = None
 
             if response_code == SUCCESS:
@@ -342,15 +342,15 @@ while True:
                 else:
                     response_code = BAD_CREDENTIALS
 
-            send_response(CLIENT_ADDR, TYPE_LOGIN, SESSION_KEY, response_code.encode('utf-8'))
+            send_response(CLIENT_ADDR, TYPE_LOGIN, KEY_PAIR, SESSION_KEY, response_code.encode('utf-8'))
             if user_addr:
                 CLIENT_ADDR = user_addr
 
         else:
-            sessionkey, response_code, payload = process_message(TYPE_COMMAND, msg, SESSION_KEY)
+            sessionkey, response_code, payload = process_message(TYPE_COMMAND, msg, KEY_PAIR, SESSION_KEY)
 
             if response_code == SERVER_BUSY:
-                send_response('L', TYPE_LOGIN, sessionkey, response_code.encode('utf-8'))
+                send_response('L', TYPE_LOGIN, KEY_PAIR, sessionkey, response_code.encode('utf-8'))
                 continue
 
             SESSION_KEY = sessionkey
@@ -478,4 +478,4 @@ while True:
                     print('The user logged out.')
                     continue
 
-                send_response(CLIENT_ADDR, TYPE_COMMAND, SESSION_KEY, response.encode('utf-8'))
+                send_response(CLIENT_ADDR, TYPE_COMMAND, KEY_PAIR, SESSION_KEY, response.encode('utf-8'))
